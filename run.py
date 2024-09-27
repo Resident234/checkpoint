@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-from selenium.common import NoSuchElementException
-
-import config
-from pathlib import Path
-from time import sleep
 from os import listdir
 from os.path import isfile, join
+from time import sleep
 
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
+from selenium.common import NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+
+import config
 
 
 def main():
@@ -25,7 +24,7 @@ def main():
     })
 
     driver = webdriver.Chrome(options=chrome_options)
-    driver.implicitly_wait(15)  # seconds
+    driver.implicitly_wait(150)  # seconds
 
     # Go to facebook.com
     driver.get("http://www.facebook.com")
@@ -43,7 +42,6 @@ def main():
     # Если появится кпонка "Сделать устройство доверенным"
     # todo включить бесконечное ожидание, пока я вход на телефоне не подтвержу
     # todo папку задавать на входе, полный путь к ней иска самостоятельно
-    driver.refresh()
     body = driver.find_element(By.CSS_SELECTOR, "body")
     body.click()
 
@@ -54,13 +52,18 @@ def main():
         pass
 
     #todo сохранить куки, чтобы подтверждение не вводить каждый раз
+    #todo обрыв связи обрабатывать
+    #todo очистка списка от дубликатов
     sleep(5)
     driver.get("https://www.facebook.com/media/set/create")
-    sleep(15)
+    sleep(5)
 
-    folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г"
+    #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
+    #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
+    folder = "D:\PHOTO\Домашние\АРХИВЫ\ПРИРОДА виды улица интерьеры животные\с 2007 по 2009 г\Москва 2009"
+
     files = [f for f in listdir(folder) if isfile(join(folder, f))]
-    print(f"Найдено файлов для загрузки {len(files)}")
+    print(f"Найдено файлов для загрузки {len(files)}") #todo вес файла вычислять и выводить
 
     files_input = driver.find_element(By.XPATH, "//input[@type='file']")
 
@@ -69,23 +72,59 @@ def main():
         ipath = '\\'.join([folder, file])
         print(f"Загрузка фото: {file}")
         files_input.send_keys(ipath)
-        print(f"Загружено {index} фото", flush=True)
+        print(f"Загружено {index} фото", flush=True)#todo со сбросом буфера разобраться
         index += 1
-        if index == 100:
-            break
-        sleep(1)
+        sleep(0.2)
 
     # Ввести название альбома
     album_name = folder.split("\\")
+    del album_name[0]
     del album_name[0]
     album_name = '\\'.join(album_name)
     elem = driver.find_element(By.XPATH, "//input[@type='text']")
     elem.send_keys(album_name)
     print(f"Название альбома: {album_name}")
 
-    #
+    sleep(2)
 
-    sleep(170)
+    # Дождаться загрузки файлов и нажать кнопку создания альбома
+    #todo прогресс аплоада файлов в консоль передавать
+    submit_button = driver.find_element(By.XPATH, "//*[text()='Отправить']")
+    submit_label = driver.find_element(By.XPATH, "//*[@aria-label='Отправить']")
+
+    retry_count = 0
+    while True:
+        sleep(1)
+        # проверка на ошибки загрузки отдельных файлов
+        try:
+            repeat_button = driver.find_element(By.XPATH, "//*[text()='Повторить попытку']")
+            repeat_button.click()
+            print(f"Повторная загрузка файлов с ошибками")
+            retry_count += 1
+            if retry_count >= 10:
+                # Снять проблемные файлы с загрузки
+                delete_item_labels = driver.find_elements(By.XPATH, "//*[@aria-label='Удалить видео']")
+                for label in delete_item_labels:
+                    label.click()
+                    sleep(1)
+                retry_count = 1
+            sleep(5)
+        except WebDriverException:
+            pass
+
+        try:
+            if submit_label.get_attribute('aria-disabled'):
+                continue
+            submit_button.click()
+        except WebDriverException:
+            continue
+        print("Отправка формы")
+        break
+
+    sleep(100)
+
+    driver.close()
+
 
     '''
     for group in grp:
@@ -138,7 +177,7 @@ def main():
             print ('image not posted in '+group)
     '''
 
-    driver.close()
+
 
 if __name__ == '__main__':
     main()
