@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+import sys
 from os import listdir
 from os.path import isfile, join
 from time import sleep
@@ -7,6 +9,7 @@ from selenium import webdriver
 from selenium.common import NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from hurry.filesize import size
 
 import config
 
@@ -60,19 +63,22 @@ def main():
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
     #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
-    folder = "D:\PHOTO\Домашние\АРХИВЫ\ПРИРОДА виды улица интерьеры животные\с 2007 по 2009 г\Москва 2009"
+    folder = "D:\PHOTO\Домашние\АРХИВЫ\ПРИРОДА виды улица интерьеры животные\с 2007 по 2009 г"
 
     files = [f for f in listdir(folder) if isfile(join(folder, f))]
-    print(f"Найдено файлов для загрузки {len(files)}") #todo вес файла вычислять и выводить
+    files_sizes = [os.path.getsize(join(folder, f)) for f in listdir(folder) if isfile(join(folder, f))]
+    print(f"Найдено файлов для загрузки {len(files)} {size(sum(files_sizes))}")
 
+    files_meta = dict(zip(files, files_sizes))
     files_input = driver.find_element(By.XPATH, "//input[@type='file']")
 
     index = 1
     for file in files:
         ipath = '\\'.join([folder, file])
-        print(f"Загрузка фото: {file}")
+        print(f"Загрузка фото: {file} {size(files_meta[file])}")
         files_input.send_keys(ipath)
-        print(f"Загружено {index} фото", flush=True)#todo со сбросом буфера разобраться
+        print(f"Загружено {index} фото", flush=True)
+        sys.stdout.flush()
         index += 1
         sleep(0.2)
 
@@ -115,13 +121,19 @@ def main():
         try:
             if submit_label.get_attribute('aria-disabled'):
                 continue
+
+            album_description = driver.find_element(By.XPATH, "//*[@aria-label='Описание (необязательно)']").find_element(By.XPATH, '//textarea')
+            album_description.send_keys(album_name)
+
             submit_button.click()
         except WebDriverException:
             continue
         print("Отправка формы")
+
+
         break
 
-    sleep(100)
+    sleep(50)
 
     driver.close()
 
