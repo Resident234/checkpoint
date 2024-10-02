@@ -26,7 +26,7 @@ def main():
         "profile.default_content_setting_values.notifications": 2  # 1:allow, 2:block
     })
 
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(options=chrome_options)#todo добавить опцию не показывать браузер
     driver.implicitly_wait(150)  # seconds
 
     # Go to facebook.com
@@ -67,17 +67,25 @@ def main():
 
     files = [f for f in listdir(folder) if isfile(join(folder, f))]
     files_sizes = [os.path.getsize(join(folder, f)) for f in listdir(folder) if isfile(join(folder, f))]
-    print(f"Найдено файлов для загрузки {len(files)} {size(sum(files_sizes))}")
+    files_count = len(files)
+    print(f"Найдено файлов для загрузки {files_count} {size(sum(files_sizes))}")
 
     files_meta = dict(zip(files, files_sizes))
     files_input = driver.find_element(By.XPATH, "//input[@type='file']")
+
+    splited_size = 100
+    files_splited = [files[x:x + splited_size] for x in range(0, len(files), splited_size)]
+
+    # Создание альбома и загрузка файлов
+    files = files_splited[0]
 
     index = 1
     for file in files:
         ipath = '\\'.join([folder, file])
         print(f"Загрузка фото: {file} {size(files_meta[file])}")
         files_input.send_keys(ipath)
-        print(f"Загружено {index} фото", flush=True)
+        print(f"Загружено {index} фото из {files_count}", flush=True)
+        print(f"Загружено {index} фото из {files_count}", flush=True)#todo прогресс для веса
         sys.stdout.flush()
         index += 1
         sleep(0.2)
@@ -105,18 +113,24 @@ def main():
         try:
             repeat_button = driver.find_element(By.XPATH, "//*[text()='Повторить попытку']")
             repeat_button.click()
-            print(f"Повторная загрузка файлов с ошибками")
             retry_count += 1
-            if retry_count >= 10:
-                # Снять проблемные файлы с загрузки
+            print(f"Повторная загрузка файлов с ошибками. Попытка {retry_count}")
+        except WebDriverException:
+            retry_count += 1
+
+        sleep(5)
+
+
+        if retry_count >= 10:
+            try:
+                print("Снятие проблемных файлов с загрузки")
                 delete_item_labels = driver.find_elements(By.XPATH, "//*[@aria-label='Удалить видео']")
                 for label in delete_item_labels:
                     label.click()
                     sleep(1)
-                retry_count = 1
-            sleep(5)
-        except WebDriverException:
-            pass
+            except WebDriverException:
+                pass
+            retry_count = 1
 
         try:
             if submit_label.get_attribute('aria-disabled'):
@@ -133,7 +147,11 @@ def main():
 
         break
 
-    sleep(50)
+    del files_splited[0]
+
+    # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
+
+    sleep(500)
 
     driver.close()
 
