@@ -187,7 +187,6 @@ def main():
     # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
 
     current_url = driver.current_url
-    print(current_url)
 
     query_def = parse.parse_qs(parse.urlparse(current_url).query)['set'][0]
     album_id = query_def.lstrip('a.')
