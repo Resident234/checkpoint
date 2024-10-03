@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import pickle
 from os import listdir
 from os.path import isfile, join
 from time import sleep
@@ -10,15 +11,13 @@ from selenium.common import NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from hurry.filesize import size
+from urllib import parse
 
 import config
 
+home = 'https://www.facebook.com/'
 
-def main():
-    # Your Facebook account user and password
-    usr = config.USER_NAME
-    pwd = config.PASSWORD
-
+def init_driver():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_experimental_option("detach", True)
     chrome_options.add_argument("--disable-infobars")
@@ -29,9 +28,9 @@ def main():
     driver = webdriver.Chrome(options=chrome_options)#todo добавить опцию не показывать браузер
     driver.implicitly_wait(150)  # seconds
 
-    # Go to facebook.com
-    driver.get("http://www.facebook.com")
-    sleep(2)
+    return driver
+
+def login(driver, usr, pwd):
     # Enter user email
     elem = driver.find_element(By.ID, "email")
     elem.send_keys(usr)
@@ -42,9 +41,10 @@ def main():
     elem.send_keys(Keys.RETURN)
     sleep(70)
 
+def add_trusted_device(driver):
     # Если появится кпонка "Сделать устройство доверенным"
     # todo включить бесконечное ожидание, пока я вход на телефоне не подтвержу
-    # todo папку задавать на входе, полный путь к ней иска самостоятельно
+    # todo папку задавать на входе, полный путь к ней искать самостоятельно
     body = driver.find_element(By.CSS_SELECTOR, "body")
     body.click()
 
@@ -54,11 +54,46 @@ def main():
     except NoSuchElementException:
         pass
 
-    #todo сохранить куки, чтобы подтверждение не вводить каждый раз
+    sleep(5)
+
+def save_cookies(driver , filename):
+    pickle.dump(driver.get_cookies(), open(filename, 'wb'))
+    print("cookies saved successfully")
+
+def add_cookies(driver, filename):
+    try:
+        cookies = pickle.load(open(filename, 'rb'))
+    except FileNotFoundError:
+        return False
+
+    if cookies:
+        for cookie in cookies:
+            driver.add_cookie(cookie)
+        print("cookies added successfully")
+        return True
+    else:
+        return False
+
+def main():
+    # Your Facebook account user and password
+    usr = config.USER_NAME
+    pwd = config.PASSWORD
+    cookie_filename = f"fb.pkl" # todo в название файла логин добавить
+    driver = init_driver()
+
+    # Go to facebook.com
+    driver.get(home)
+    sleep(2)  # todo от пауз избавиться
+
+    if not add_cookies(driver, cookie_filename):
+        login(driver, usr, pwd)
+        add_trusted_device(driver)
+        save_cookies(driver, cookie_filename)
+
     #todo обрыв связи обрабатывать
     #todo очистка списка от дубликатов
-    sleep(5)
-    driver.get("https://www.facebook.com/media/set/create")
+
+    driver.get(home + "media/set/create")
     sleep(5)
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
@@ -130,7 +165,7 @@ def main():
                     sleep(1)
             except WebDriverException:
                 pass
-            retry_count = 1
+            retry_count = 0
 
         try:
             if submit_label.get_attribute('aria-disabled'):
@@ -144,12 +179,21 @@ def main():
             continue
         print("Отправка формы")
 
-
         break
 
     del files_splited[0]
+    sleep(100) # todo добавить ожидание когда завершится перенаправление на страницу созданного альбома
 
     # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
+
+    current_url = driver.current_url
+    print(current_url)
+
+    query_def = parse.parse_qs(parse.urlparse(current_url).query)['set'][0]
+    album_id = query_def.lstrip('a.')
+
+    print(f"ID только что созданного альбома: {album_id}")
+
 
     sleep(500)
 
