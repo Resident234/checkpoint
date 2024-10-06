@@ -9,6 +9,8 @@ from time import sleep
 from selenium import webdriver
 from selenium.common import NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 from hurry.filesize import size
 from urllib import parse
@@ -16,6 +18,10 @@ from urllib import parse
 import config
 
 home = 'https://www.facebook.com/'
+folder = "D:\PHOTO\Домашние\АРХИВЫ\ПРИРОДА виды улица интерьеры животные\с 2007 по 2009 г"
+index_file = 1
+cookie_filename = f"fb.pkl"  # todo в название файла логин добавить
+
 
 def init_driver():
     chrome_options = webdriver.ChromeOptions()
@@ -26,7 +32,6 @@ def init_driver():
     })
 
     driver = webdriver.Chrome(options=chrome_options)#todo добавить опцию не показывать браузер
-    driver.implicitly_wait(150)  # seconds
 
     return driver
 
@@ -74,16 +79,88 @@ def add_cookies(driver, filename):
     else:
         return False
 
+def upload_to_album(driver, files: list[str], files_meta: dict):
+    # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
+    global index_file
+    current_url = driver.current_url
+
+    query_def = parse.parse_qs(parse.urlparse(current_url).query)['set'][0]
+    album_id = query_def.lstrip('a.')
+    files_count = len(files_meta)
+
+    print(f"ID только что созданного альбома: {album_id}")
+
+    driver.get(f"{home}media/set/edit/a.{album_id}")
+    sleep(5)
+
+    # Загрузка файлов
+    files_input = driver.find_element(By.XPATH, "//input[@type='file']")
+
+    for file in files:
+        ipath = '\\'.join([folder, file])
+        print(f"Загрузка фото: {file} {size(files_meta[file])}")
+        files_input.send_keys(ipath)
+        print(f"Загружено {index_file} фото из {files_count}", flush=True)
+        print(f"Загружено {index_file} фото из {files_count}", flush=True)  # todo прогресс для веса
+        sys.stdout.flush()
+        index_file += 1
+        sleep(0.2)
+
+    # Кнопка "Добавить в альбом"
+    sleep(5)
+    while True:
+        add_dialogs = driver.find_elements(By.XPATH, "//*[text()='Добавить в альбом']")  # "//*[@aria-label='Добавление в альбом' and @role='dialog']"
+        add_dialogs = add_dialogs[::-1]
+        print(f"Открытых диалоговых окон: {len(add_dialogs)}")
+
+        if not add_dialogs:
+            break
+
+        for index, button in enumerate(add_dialogs):
+            print(f"Кнопка: {button}")
+            try:
+                button.click()
+            except WebDriverException:
+                continue
+
+            print(f"Сохранение фото {index}")
+            del add_dialogs[index]
+            # После клика дождаться пока опубликуется
+            sleep(5)
+            break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
+
+    sleep(5)
+
+    submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому']")
+    submit_label = driver.find_element(By.XPATH, "//*[@aria-label='К альбому']")
+
+    while True:
+        sleep(1)
+        try:
+            if submit_label.get_attribute('aria-disabled'):
+                continue
+
+            submit_button.click()
+        except WebDriverException:
+            continue
+        print("Отправка формы")
+        break
+
+    sleep(50)
+
+
 def main():
+    global index_file
+
     # Your Facebook account user and password
     usr = config.USER_NAME
     pwd = config.PASSWORD
-    cookie_filename = f"fb.pkl" # todo в название файла логин добавить
     driver = init_driver()
 
     # Go to facebook.com
     driver.get(home)
     sleep(2)  # todo от пауз избавиться
+    # todo Распознавать попап "Вы временно заблокированы"
 
     if not add_cookies(driver, cookie_filename):
         login(driver, usr, pwd)
@@ -98,7 +175,6 @@ def main():
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
     #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
-    folder = "D:\PHOTO\Домашние\АРХИВЫ\ПРИРОДА виды улица интерьеры животные\с 2007 по 2009 г"
 
     files = [f for f in listdir(folder) if isfile(join(folder, f))]
     files_sizes = [os.path.getsize(join(folder, f)) for f in listdir(folder) if isfile(join(folder, f))]
@@ -114,15 +190,14 @@ def main():
     # Создание альбома и загрузка файлов
     files = files_splited[0]
 
-    index = 1
     for file in files:
         ipath = '\\'.join([folder, file])
         print(f"Загрузка фото: {file} {size(files_meta[file])}")
         files_input.send_keys(ipath)
-        print(f"Загружено {index} фото из {files_count}", flush=True)
-        print(f"Загружено {index} фото из {files_count}", flush=True)#todo прогресс для веса
+        print(f"Загружено {index_file} фото из {files_count}", flush=True)
+        print(f"Загружено {index_file} фото из {files_count}", flush=True)#todo прогресс для веса
         sys.stdout.flush()
-        index += 1
+        index_file += 1
         sleep(0.2)
 
     # Ввести название альбома
@@ -184,16 +259,13 @@ def main():
     del files_splited[0]
     sleep(100) # todo добавить ожидание когда завершится перенаправление на страницу созданного альбома
 
-    # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
+    while True:
+        if not files_splited:
+            break
+        upload_to_album(driver, files_splited[0], files_meta)
+        del files_splited[0]
 
-    current_url = driver.current_url
-
-    query_def = parse.parse_qs(parse.urlparse(current_url).query)['set'][0]
-    album_id = query_def.lstrip('a.')
-
-    print(f"ID только что созданного альбома: {album_id}")
-
-
+    print("Загрузка завершена")
     sleep(500)
 
     driver.close()
