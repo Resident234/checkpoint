@@ -5,6 +5,7 @@ import pickle
 from os import listdir
 from os.path import isfile, join
 from time import sleep
+from typing import Tuple, Any
 
 from selenium import webdriver
 from selenium.common import NoSuchElementException, WebDriverException
@@ -18,9 +19,12 @@ from urllib import parse
 import config
 
 home = 'https://www.facebook.com/'
-folder = "D:\PHOTO\Домашние\АРХИВЫ\ПРИРОДА виды улица интерьеры животные\с 2007 по 2009 г"
+folder = "D:\PHOTO\Домашние\АРХИВЫ\РАЗНОЕ\Мамина работа\к педсовету"
 index_file = 1
+index_to_album = 1
 cookie_filename = f"fb.pkl"  # todo в название файла логин добавить
+progress_filename = f"progress.pkl"
+splited_size = 20
 
 
 def init_driver():
@@ -31,9 +35,10 @@ def init_driver():
         "profile.default_content_setting_values.notifications": 2  # 1:allow, 2:block
     })
 
-    driver = webdriver.Chrome(options=chrome_options)#todo добавить опцию не показывать браузер
+    driver = webdriver.Chrome(options=chrome_options)  #todo добавить опцию не показывать браузер
 
     return driver
+
 
 def login(driver, usr, pwd):
     # Enter user email
@@ -45,6 +50,7 @@ def login(driver, usr, pwd):
     # Login
     elem.send_keys(Keys.RETURN)
     sleep(70)
+
 
 def add_trusted_device(driver):
     # Если появится кпонка "Сделать устройство доверенным"
@@ -61,9 +67,11 @@ def add_trusted_device(driver):
 
     sleep(5)
 
-def save_cookies(driver , filename):
+
+def save_cookies(driver, filename):
     pickle.dump(driver.get_cookies(), open(filename, 'wb'))
     print("cookies saved successfully")
+
 
 def add_cookies(driver, filename):
     try:
@@ -79,13 +87,29 @@ def add_cookies(driver, filename):
     else:
         return False
 
-def upload_to_album(driver, files: list[str], files_meta: dict):
-    # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
-    global index_file
-    current_url = driver.current_url
 
-    query_def = parse.parse_qs(parse.urlparse(current_url).query)['set'][0]
-    album_id = query_def.lstrip('a.')
+def save_progress(album_id, file_number):
+    pickle.dump([album_id, file_number], open(progress_filename, 'wb'))
+
+
+def clear_saved_progress():
+    if os.path.isfile(progress_filename):
+        os.remove(progress_filename)
+
+
+def restore_progress() -> bool | tuple[Any]:
+    try:
+        progress = pickle.load(open(progress_filename, 'rb'))
+    except FileNotFoundError:
+        return False
+
+    return *progress,
+
+
+def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
+    # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
+    global index_file, index_to_album
+
     files_count = len(files_meta)
 
     print(f"ID только что созданного альбома: {album_id}")
@@ -96,14 +120,16 @@ def upload_to_album(driver, files: list[str], files_meta: dict):
     # Загрузка файлов
     files_input = driver.find_element(By.XPATH, "//input[@type='file']")
 
+
     for file in files:
         ipath = '\\'.join([folder, file])
         print(f"Загрузка фото: {file} {size(files_meta[file])}")
         files_input.send_keys(ipath)
-        print(f"Загружено {index_file} фото из {files_count}", flush=True)
-        print(f"Загружено {index_file} фото из {files_count}", flush=True)  # todo прогресс для веса
+        print(f"Загружено {index_to_album} фото из {files_count}", flush=True)
+        print(f"Загружено {index_to_album} фото из {files_count}", flush=True)  # todo прогресс для веса
         sys.stdout.flush()
         index_file += 1
+        index_to_album += 1
         sleep(0.2)
 
     # Кнопка "Добавить в альбом"
@@ -146,58 +172,33 @@ def upload_to_album(driver, files: list[str], files_meta: dict):
         print("Отправка формы")
         break
 
+    save_progress(album_id, index_file)
+
     sleep(50)
 
+def create_album(driver, files: list[str], files_meta: dict):
+    """
 
-def main():
-    global index_file
-
-    # Your Facebook account user and password
-    usr = config.USER_NAME
-    pwd = config.PASSWORD
-    driver = init_driver()
-
-    # Go to facebook.com
-    driver.get(home)
-    sleep(2)  # todo от пауз избавиться
-    # todo Распознавать попап "Вы временно заблокированы"
-
-    if not add_cookies(driver, cookie_filename):
-        login(driver, usr, pwd)
-        add_trusted_device(driver)
-        save_cookies(driver, cookie_filename)
-
-    #todo обрыв связи обрабатывать
-    #todo очистка списка от дубликатов
-
+    :param driver:
+    :param files:
+    :param files_meta:
+    :return: album_id
+    """
+    global index_file, index_to_album
     driver.get(home + "media/set/create")
     sleep(5)
-
-    #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
-    #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
-
-    files = [f for f in listdir(folder) if isfile(join(folder, f))]
-    files_sizes = [os.path.getsize(join(folder, f)) for f in listdir(folder) if isfile(join(folder, f))]
-    files_count = len(files)
-    print(f"Найдено файлов для загрузки {files_count} {size(sum(files_sizes))}")
-
-    files_meta = dict(zip(files, files_sizes))
     files_input = driver.find_element(By.XPATH, "//input[@type='file']")
-
-    splited_size = 100
-    files_splited = [files[x:x + splited_size] for x in range(0, len(files), splited_size)]
-
-    # Создание альбома и загрузка файлов
-    files = files_splited[0]
+    files_count = len(files_meta)
 
     for file in files:
         ipath = '\\'.join([folder, file])
         print(f"Загрузка фото: {file} {size(files_meta[file])}")
         files_input.send_keys(ipath)
-        print(f"Загружено {index_file} фото из {files_count}", flush=True)
-        print(f"Загружено {index_file} фото из {files_count}", flush=True)#todo прогресс для веса
+        print(f"Загружено {index_to_album} фото из {files_count}", flush=True)
+        print(f"Загружено {index_to_album} фото из {files_count}", flush=True)  #todo прогресс для веса
         sys.stdout.flush()
         index_file += 1
+        index_to_album += 1
         sleep(0.2)
 
     # Ввести название альбома
@@ -230,7 +231,6 @@ def main():
 
         sleep(5)
 
-
         if retry_count >= 10:
             try:
                 print("Снятие проблемных файлов с загрузки")
@@ -256,20 +256,73 @@ def main():
 
         break
 
-    del files_splited[0]
-    sleep(100) # todo добавить ожидание когда завершится перенаправление на страницу созданного альбома
+    sleep(100)  # todo добавить ожидание когда завершится перенаправление на страницу созданного альбома
+    current_url = driver.current_url
+
+    query_def = parse.parse_qs(parse.urlparse(current_url).query)['set'][0]
+    album_id = query_def.lstrip('a.')
+
+    return int(album_id)
+
+def main():
+    global index_file
+
+    # Your Facebook account user and password
+    usr = config.USER_NAME
+    pwd = config.PASSWORD
+    driver = init_driver()
+
+    # Go to facebook.com
+    driver.get(home)
+    sleep(2)  # todo от пауз избавиться
+    # todo Распознавать попап "Вы временно заблокированы"
+
+    if not add_cookies(driver, cookie_filename):
+        login(driver, usr, pwd)
+        add_trusted_device(driver)
+        save_cookies(driver, cookie_filename)
+
+    #todo обрыв связи обрабатывать
+    #todo очистка списка от дубликатов
+
+    #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
+    #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
+
+    files = [f for f in listdir(folder) if isfile(join(folder, f))]
+    files_sizes = [os.path.getsize(join(folder, f)) for f in listdir(folder) if isfile(join(folder, f))]
+
+    progress = restore_progress()
+    if progress:
+        index_file = progress[1]
+        del files[0:index_file]
+        del files_sizes[0:index_file]
+
+    files_count = len(files)
+
+    print(f"Найдено файлов для загрузки {files_count} {size(sum(files_sizes))}")
+
+    files_meta = dict(zip(files, files_sizes))
+
+    files_splited = [files[x:x + splited_size] for x in range(0, len(files), splited_size)]
+
+    if not progress:
+        # Создание альбома и загрузка файлов
+        album_id = create_album(driver, files_splited[0], files_meta)
+        del files_splited[0]
+    else:
+        album_id = progress[0]
 
     while True:
         if not files_splited:
             break
-        upload_to_album(driver, files_splited[0], files_meta)
+        upload_to_album(driver, album_id=album_id, files=files_splited[0], files_meta=files_meta)
         del files_splited[0]
 
     print("Загрузка завершена")
+    clear_saved_progress()
     sleep(500)
 
     driver.close()
-
 
     '''
     for group in grp:
@@ -321,7 +374,6 @@ def main():
             pass
             print ('image not posted in '+group)
     '''
-
 
 
 if __name__ == '__main__':
