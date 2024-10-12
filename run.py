@@ -2,6 +2,7 @@
 import os
 import sys
 import pickle
+import argparse
 from os import listdir
 from os.path import isfile, join
 from time import sleep
@@ -19,7 +20,7 @@ from urllib import parse
 import config
 
 home = 'https://www.facebook.com/'
-folder = "D:\PHOTO\Домашние\АРХИВЫ\РАЗНОЕ\Мамина работа\к педсовету"
+folder = ""
 index_file = 1
 index_to_album = 1
 cookie_filename = f"fb.pkl"  # todo в название файла логин добавить
@@ -264,12 +265,27 @@ def create_album(driver, files: list[str], files_meta: dict):
 
     return int(album_id)
 
+def parse_cli_args():
+    """
+    Пример ввода
+    run.py --folder "D:\\PHOTO\\Домашние\\АРХИВЫ\\РАЗНОЕ\\Мамина работа\\к педсовету"
+    """
+    global folder
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--folder', dest='folder', type=str, help='Full path to the folder', required=True)
+    args = parser.parse_args()
+    folder = args.folder
+
 def main():
     global index_file
 
     # Your Facebook account user and password
     usr = config.USER_NAME
     pwd = config.PASSWORD
+
+    parse_cli_args()
+
     driver = init_driver()
 
     # Go to facebook.com
