@@ -3,6 +3,7 @@ import os
 import sys
 import pickle
 import argparse
+import filetype
 from os import listdir
 from os.path import isfile, join
 from time import sleep
@@ -50,6 +51,7 @@ def login(driver, usr, pwd):
     elem.send_keys(pwd)
     # Login
     elem.send_keys(Keys.RETURN)
+    #element = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.ID, "element_id")))
     sleep(70)
 
 
@@ -116,11 +118,9 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
     print(f"ID только что созданного альбома: {album_id}")
 
     driver.get(f"{home}media/set/edit/a.{album_id}")
-    sleep(5)
 
     # Загрузка файлов
     files_input = driver.find_element(By.XPATH, "//input[@type='file']")
-
 
     for file in files:
         ipath = '\\'.join([folder, file])
@@ -144,7 +144,6 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
             break
 
         for index, button in enumerate(add_dialogs):
-            print(f"Кнопка: {button}")
             try:
                 button.click()
             except WebDriverException:
@@ -152,11 +151,12 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
 
             print(f"Сохранение фото {index}")
             del add_dialogs[index]
-            # После клика дождаться пока опубликуется
-            sleep(5)
-            break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
 
-    sleep(5)
+            # После клика дождаться пока опубликуется
+            wait = WebDriverWait(driver, 50)
+            wait.until(lambda x: not driver.find_elements(By.XPATH, "//*[text()='Публикация']"))
+
+            break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
 
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому']")
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='К альбому']")
@@ -175,8 +175,6 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
 
     save_progress(album_id, index_file)
 
-    sleep(50)
-
 def create_album(driver, files: list[str], files_meta: dict):
     """
 
@@ -187,7 +185,6 @@ def create_album(driver, files: list[str], files_meta: dict):
     """
     global index_file, index_to_album
     driver.get(home + "media/set/create")
-    sleep(5)
     files_input = driver.find_element(By.XPATH, "//input[@type='file']")
     files_count = len(files_meta)
 
@@ -207,11 +204,11 @@ def create_album(driver, files: list[str], files_meta: dict):
     del album_name[0]
     del album_name[0]
     album_name = '\\'.join(album_name)
+    album_name = album_name.replace('\\\\', '\\')
     elem = driver.find_element(By.XPATH, "//input[@type='text']")
     elem.send_keys(album_name)
     print(f"Название альбома: {album_name}")
 
-    sleep(2)
 
     # Дождаться загрузки файлов и нажать кнопку создания альбома
     #todo прогресс аплоада файлов в консоль передавать
@@ -220,7 +217,6 @@ def create_album(driver, files: list[str], files_meta: dict):
 
     retry_count = 0
     while True:
-        sleep(1)
         # проверка на ошибки загрузки отдельных файлов
         try:
             repeat_button = driver.find_element(By.XPATH, "//*[text()='Повторить попытку']")
@@ -230,7 +226,7 @@ def create_album(driver, files: list[str], files_meta: dict):
         except WebDriverException:
             retry_count += 1
 
-        sleep(5)
+        sleep(1)
 
         if retry_count >= 10:
             try:
@@ -257,10 +253,10 @@ def create_album(driver, files: list[str], files_meta: dict):
 
         break
 
-    sleep(100)  # todo добавить ожидание когда завершится перенаправление на страницу созданного альбома
-    current_url = driver.current_url
+    wait = WebDriverWait(driver, 100)
+    wait.until(lambda x: driver.current_url.find('&set=') != -1) # ожидание когда завершится перенаправление на страницу созданного альбома
 
-    query_def = parse.parse_qs(parse.urlparse(current_url).query)['set'][0]
+    query_def = parse.parse_qs(parse.urlparse(driver.current_url).query).get('set')[0]
     album_id = query_def.lstrip('a.')
 
     return int(album_id)
@@ -290,7 +286,7 @@ def main():
 
     # Go to facebook.com
     driver.get(home)
-    sleep(2)  # todo от пауз избавиться
+    # todo от пауз избавиться
     # todo Распознавать попап "Вы временно заблокированы"
 
     if not add_cookies(driver, cookie_filename):
@@ -302,10 +298,11 @@ def main():
     #todo очистка списка от дубликатов
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
+    # todo собирать файлы только типа картинки
     #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
 
-    files = [f for f in listdir(folder) if isfile(join(folder, f))]
-    files_sizes = [os.path.getsize(join(folder, f)) for f in listdir(folder) if isfile(join(folder, f))]
+    files = [f for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))] # todo оптимизировать, два раза папку прочесываем
+    files_sizes = [os.path.getsize(join(folder, f)) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))]
 
     progress = restore_progress()
     if progress:
@@ -336,7 +333,7 @@ def main():
 
     print("Загрузка завершена")
     clear_saved_progress()
-    sleep(500)
+    sleep(500)# todo Менять видимость альбома
 
     driver.close()
 
