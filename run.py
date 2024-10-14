@@ -301,20 +301,18 @@ def main():
     # todo собирать файлы только типа картинки
     #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
 
-    files = [f for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))] # todo оптимизировать, два раза папку прочесываем
-    files_sizes = [os.path.getsize(join(folder, f)) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))]
+    files = [(f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))]
 
     progress = restore_progress()
     if progress:
         index_file = progress[1]
         del files[0:index_file]
-        del files_sizes[0:index_file]
 
     files_count = len(files)
+    files_meta = dict(files)
+    files, files_sizes = zip(*files)
 
     print(f"Найдено файлов для загрузки {files_count} {size(sum(files_sizes))}")
-
-    files_meta = dict(zip(files, files_sizes))
 
     files_splited = [files[x:x + splited_size] for x in range(0, len(files), splited_size)]
 
