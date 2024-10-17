@@ -12,6 +12,7 @@ from typing import Tuple, Any
 from selenium import webdriver
 from selenium.common import NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
@@ -23,7 +24,8 @@ import config
 home = 'https://www.facebook.com/'
 folder = ""
 index_file = 1
-index_to_album = 1
+index_to_album = 0
+size_to_album = 0
 cookie_filename = f"fb.pkl"  # todo в название файла логин добавить
 progress_filename = f"progress.pkl"
 splited_size = 20
@@ -111,27 +113,16 @@ def restore_progress() -> bool | tuple[Any]:
 
 def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
     # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
-    global index_file, index_to_album
+    global index_file, index_to_album, size_to_album
 
-    files_count = len(files_meta)
-
-    print(f"ID только что созданного альбома: {album_id}")
+    print(f"ID альбома: {album_id}")
 
     driver.get(f"{home}media/set/edit/a.{album_id}")
 
+    # todo попап "Мы удалили вашу публикацию" обрабатывать
     # Загрузка файлов
     files_input = driver.find_element(By.XPATH, "//input[@type='file']")
-
-    for file in files:
-        ipath = '\\'.join([folder, file])
-        print(f"Загрузка фото: {file} {size(files_meta[file])}")
-        files_input.send_keys(ipath)
-        print(f"Загружено {index_to_album} фото из {files_count}", flush=True)
-        print(f"Загружено {index_to_album} фото из {files_count}", flush=True)  # todo прогресс для веса
-        sys.stdout.flush()
-        index_file += 1
-        index_to_album += 1
-        sleep(0.2)
+    set_files_to_field(files_input, files, files_meta)
 
     # Кнопка "Добавить в альбом"
     sleep(5)
@@ -149,7 +140,7 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
             except WebDriverException:
                 continue
 
-            print(f"Сохранение фото {index}")
+            print(f"Сохранение фото")
             del add_dialogs[index]
 
             # После клика дождаться пока опубликуется
@@ -158,7 +149,7 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
 
             break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
 
-    submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому']")
+    submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому']") # todo предусмотреть если вместо этой кнопки кнопка Сохранить
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='К альбому']")
 
     while True:
@@ -185,19 +176,9 @@ def create_album(driver, files: list[str], files_meta: dict):
     """
     global index_file, index_to_album
     driver.get(home + "media/set/create")
-    files_input = driver.find_element(By.XPATH, "//input[@type='file']")
-    files_count = len(files_meta)
 
-    for file in files:
-        ipath = '\\'.join([folder, file])
-        print(f"Загрузка фото: {file} {size(files_meta[file])}")
-        files_input.send_keys(ipath)
-        print(f"Загружено {index_to_album} фото из {files_count}", flush=True)
-        print(f"Загружено {index_to_album} фото из {files_count}", flush=True)  #todo прогресс для веса
-        sys.stdout.flush()
-        index_file += 1
-        index_to_album += 1
-        sleep(0.2)
+    files_input = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
+    set_files_to_field(files_input, files, files_meta)
 
     # Ввести название альбома
     album_name = folder.split("\\")
@@ -273,6 +254,50 @@ def parse_cli_args():
     args = parser.parse_args()
     folder = args.folder
 
+def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f"{prefix} |{bar}| {percent}% {suffix}")
+    # Print New Line on Complete
+    if iteration == total:
+        print()
+
+def set_files_to_field(files_input: WebElement, files: list, files_meta: dict):
+    global index_file, index_to_album, size_to_album
+
+    files_count = len(files_meta)
+    size_all_files = sum(files_meta.values())
+
+    # Initial call to print 0% progress
+    print_progress_bar(size_to_album, size_all_files, prefix='Progress:', suffix='Complete', length=50)
+
+    for file in files:
+        ipath = '\\'.join([folder, file])
+        print(f"Загрузка фото: {file} {size(files_meta[file])}")
+        files_input.send_keys(ipath)
+        sys.stdout.flush()
+        index_file += 1
+        index_to_album += 1
+        size_to_album += files_meta[file]
+        print(
+            f"Загружено {index_to_album} фото из {files_count} ({size(size_to_album)} из {size(size_all_files)})",
+            flush=True
+        )
+        print_progress_bar(size_to_album, size_all_files, prefix='Progress:', suffix='Complete', length=50)
+        sleep(0.2)
+
 def main():
     global index_file
 
@@ -288,6 +313,7 @@ def main():
     driver.get(home)
     # todo от пауз избавиться
     # todo Распознавать попап "Вы временно заблокированы"
+    # todo Сохранение прогресса сразу после создания альбома
 
     if not add_cookies(driver, cookie_filename):
         login(driver, usr, pwd)
