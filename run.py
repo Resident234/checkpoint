@@ -190,9 +190,7 @@ def create_album(driver, files: list[str], files_meta: dict):
     elem.send_keys(album_name)
     print(f"Название альбома: {album_name}")
 
-
     # Дождаться загрузки файлов и нажать кнопку создания альбома
-    #todo прогресс аплоада файлов в консоль передавать
     submit_button = driver.find_element(By.XPATH, "//*[text()='Отправить']")
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='Отправить']")
 
@@ -239,6 +237,7 @@ def create_album(driver, files: list[str], files_meta: dict):
 
     query_def = parse.parse_qs(parse.urlparse(driver.current_url).query).get('set')[0]
     album_id = query_def.lstrip('a.')
+    save_progress(album_id, index_file)
 
     return int(album_id)
 
@@ -311,9 +310,7 @@ def main():
 
     # Go to facebook.com
     driver.get(home)
-    # todo от пауз избавиться
     # todo Распознавать попап "Вы временно заблокированы"
-    # todo Сохранение прогресса сразу после создания альбома
 
     if not add_cookies(driver, cookie_filename):
         login(driver, usr, pwd)
