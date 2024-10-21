@@ -29,7 +29,8 @@ size_to_album = 0
 cookie_filename = f"fb.pkl"  # todo в название файла логин добавить
 progress_filename = f"progress.pkl"
 splited_size = 20
-
+renew_cookie = False
+# todo итоговый результат по завершении выводить: какая папка закинута, сколько файлов было закинуто и тд.
 
 def init_driver():
     chrome_options = webdriver.ChromeOptions()
@@ -85,6 +86,8 @@ def add_cookies(driver, filename):
         return False
 
     if cookies:
+        # todo предусмотреть проверку истечения
+        #[{'domain': '.facebook.com', 'expiry': 1735714471, 'httpOnly': True, 'name': 'fr', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '05ph6f0hw4tuSzo9F.AWU-O3D10vsFCE9voUFq_NNXPMQ.Bm_j9b..AAA.0.0.Bm_j-m.AWU8cqDJJyc'}, {'domain': '.facebook.com', 'expiry': 1759474424, 'httpOnly': True, 'name': 'xs', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '35%3A0UNfy0QwpAuLmw%3A2%3A1727938422%3A-1%3A14476'}, {'domain': '.facebook.com', 'expiry': 1759474424, 'httpOnly': False, 'name': 'c_user', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '100007859116486'}, {'domain': '.facebook.com', 'expiry': 1728543205, 'httpOnly': False, 'name': 'locale', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'ru_RU'}, {'domain': '.facebook.com', 'httpOnly': False, 'name': 'presence', 'path': '/', 'sameSite': 'Lax', 'secure': True, 'value': 'C%7B%22t3%22%3A%5B%5D%2C%22utc3%22%3A1727938473890%2C%22v%22%3A1%7D'}, {'domain': '.facebook.com', 'expiry': 1728543273, 'httpOnly': False, 'name': 'wd', 'path': '/', 'sameSite': 'Lax', 'secure': True, 'value': '929x873'}, {'domain': '.facebook.com', 'expiry': 1762498397, 'httpOnly': True, 'name': 'datr', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'Wz_-ZubvX8PhEuJo2hFYXuKA'}, {'domain': '.facebook.com', 'expiry': 1762498424, 'httpOnly': True, 'name': 'sb', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'Wz_-ZluV4_krp6As8GZW3_l_'}]
         for cookie in cookies:
             driver.add_cookie(cookie)
         print("cookies added successfully")
@@ -121,7 +124,7 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
 
     # todo попап "Мы удалили вашу публикацию" обрабатывать
     # Загрузка файлов
-    files_input = driver.find_element(By.XPATH, "//input[@type='file']")
+    files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
     set_files_to_field(files_input, files, files_meta)
 
     # Кнопка "Добавить в альбом"
@@ -177,11 +180,14 @@ def create_album(driver, files: list[str], files_meta: dict):
     global index_file, index_to_album
     driver.get(home + "media/set/create")
 
-    files_input = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
+    files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
     set_files_to_field(files_input, files, files_meta)
 
     # Ввести название альбома
     album_name = folder.split("\\")
+    album_name = list(filter(None, album_name))
+
+    print(album_name)
     del album_name[0]
     del album_name[0]
     album_name = '\\'.join(album_name)
@@ -244,14 +250,16 @@ def create_album(driver, files: list[str], files_meta: dict):
 def parse_cli_args():
     """
     Пример ввода
-    run.py --folder "D:\\PHOTO\\Домашние\\АРХИВЫ\\РАЗНОЕ\\Мамина работа\\к педсовету"
+    run.py --folder "D:\\PHOTO\\Домашние\\АРХИВЫ\\РАЗНОЕ\\Мамина работа\\к педсовету" --renewcookie
     """
-    global folder
+    global folder, renew_cookie
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--folder', dest='folder', type=str, help='Full path to the folder', required=True)
+    parser.add_argument('--renewcookie', help='Force renew cookie', action="store_true")
     args = parser.parse_args()
     folder = args.folder
+    renew_cookie = args.renewcookie
 
 def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
@@ -312,16 +320,16 @@ def main():
     driver.get(home)
     # todo Распознавать попап "Вы временно заблокированы"
 
-    if not add_cookies(driver, cookie_filename):
+    if renew_cookie or not add_cookies(driver, cookie_filename):
         login(driver, usr, pwd)
         add_trusted_device(driver)
         save_cookies(driver, cookie_filename)
 
     #todo обрыв связи обрабатывать
     #todo очистка списка от дубликатов
+    #todo распознавать капчу и ждать ввода
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
-    # todo собирать файлы только типа картинки
     #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
 
     files = [(f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))]
