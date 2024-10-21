@@ -30,7 +30,7 @@ cookie_filename = f"fb.pkl"  # todo в название файла логин д
 progress_filename = f"progress.pkl"
 splited_size = 20
 renew_cookie = False
-# todo итоговый результат по завершении выводить: какая папка закинута, сколько файлов было закинуто и тд.
+
 
 def init_driver():
     chrome_options = webdriver.ChromeOptions()
@@ -89,6 +89,8 @@ def add_cookies(driver, filename):
         # todo предусмотреть проверку истечения
         #[{'domain': '.facebook.com', 'expiry': 1735714471, 'httpOnly': True, 'name': 'fr', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '05ph6f0hw4tuSzo9F.AWU-O3D10vsFCE9voUFq_NNXPMQ.Bm_j9b..AAA.0.0.Bm_j-m.AWU8cqDJJyc'}, {'domain': '.facebook.com', 'expiry': 1759474424, 'httpOnly': True, 'name': 'xs', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '35%3A0UNfy0QwpAuLmw%3A2%3A1727938422%3A-1%3A14476'}, {'domain': '.facebook.com', 'expiry': 1759474424, 'httpOnly': False, 'name': 'c_user', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '100007859116486'}, {'domain': '.facebook.com', 'expiry': 1728543205, 'httpOnly': False, 'name': 'locale', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'ru_RU'}, {'domain': '.facebook.com', 'httpOnly': False, 'name': 'presence', 'path': '/', 'sameSite': 'Lax', 'secure': True, 'value': 'C%7B%22t3%22%3A%5B%5D%2C%22utc3%22%3A1727938473890%2C%22v%22%3A1%7D'}, {'domain': '.facebook.com', 'expiry': 1728543273, 'httpOnly': False, 'name': 'wd', 'path': '/', 'sameSite': 'Lax', 'secure': True, 'value': '929x873'}, {'domain': '.facebook.com', 'expiry': 1762498397, 'httpOnly': True, 'name': 'datr', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'Wz_-ZubvX8PhEuJo2hFYXuKA'}, {'domain': '.facebook.com', 'expiry': 1762498424, 'httpOnly': True, 'name': 'sb', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'Wz_-ZluV4_krp6As8GZW3_l_'}]
         for cookie in cookies:
+            if cookie['expiry'] < date.today():
+                return False
             driver.add_cookie(cookie)
         print("cookies added successfully")
         return True
@@ -96,8 +98,8 @@ def add_cookies(driver, filename):
         return False
 
 
-def save_progress(album_id, file_number):
-    pickle.dump([album_id, file_number], open(progress_filename, 'wb'))
+def save_progress(album_id, file_number, album_name):
+    pickle.dump([album_id, file_number, album_name], open(progress_filename, 'wb'))
 
 
 def clear_saved_progress():
@@ -167,7 +169,8 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
         print("Отправка формы")
         break
 
-    save_progress(album_id, index_file)
+    x, x, album_name = restore_progress()
+    save_progress(album_id, index_file, album_name)
 
 def create_album(driver, files: list[str], files_meta: dict):
     """
@@ -187,7 +190,6 @@ def create_album(driver, files: list[str], files_meta: dict):
     album_name = folder.split("\\")
     album_name = list(filter(None, album_name))
 
-    print(album_name)
     del album_name[0]
     del album_name[0]
     album_name = '\\'.join(album_name)
@@ -243,23 +245,25 @@ def create_album(driver, files: list[str], files_meta: dict):
 
     query_def = parse.parse_qs(parse.urlparse(driver.current_url).query).get('set')[0]
     album_id = query_def.lstrip('a.')
-    save_progress(album_id, index_file)
+    save_progress(album_id, index_file, album_name)
 
-    return int(album_id)
+    return (int(album_id), album_name)
 
 def parse_cli_args():
     """
     Пример ввода
-    run.py --folder "D:\\PHOTO\\Домашние\\АРХИВЫ\\РАЗНОЕ\\Мамина работа\\к педсовету" --renewcookie
+    run.py --folder "D:\\PHOTO\\Домашние\\АРХИВЫ\\РАЗНОЕ\\Мамина работа\\к педсовету" --renewcookie --splitedsize=30
     """
-    global folder, renew_cookie
+    global folder, renew_cookie, splited_size
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--folder', dest='folder', type=str, help='Full path to the folder', required=True)
     parser.add_argument('--renewcookie', help='Force renew cookie', action="store_true")
+    parser.add_argument('--splitedsize', help='How many files to send to the album per iteration', type=int, default=20)
     args = parser.parse_args()
     folder = args.folder
     renew_cookie = args.renewcookie
+    splited_size = args.splitedsize
 
 def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
@@ -349,10 +353,11 @@ def main():
 
     if not progress:
         # Создание альбома и загрузка файлов
-        album_id = create_album(driver, files_splited[0], files_meta)
+        album_id, album_name = create_album(driver, files_splited[0], files_meta)
         del files_splited[0]
     else:
         album_id = progress[0]
+        album_name = progress[3]
 
     while True:
         if not files_splited:
@@ -360,62 +365,15 @@ def main():
         upload_to_album(driver, album_id=album_id, files=files_splited[0], files_meta=files_meta)
         del files_splited[0]
 
-    print("Загрузка завершена")
+    print("Загрузка завершена\n")
+    print(f"Название альбома: {album_name}")
+    print(f"ID альбома: {album_id}")
+    print(f"Загружено файлов: {files_count} {size(sum(files_sizes))}")
     clear_saved_progress()
+
     sleep(500)# todo Менять видимость альбома
 
     driver.close()
-
-    '''
-    for group in grp:
-    
-        driver.get(group)
-    
-        try:
-    
-            try:
-    
-                commentr = WebDriverWait(driver,10).until(EC.element_to_be_clickable( (By.XPATH, "//*[@name='xhpc_message_text']") ))
-                commentr.click()
-    
-            except Exception:
-                commentr = WebDriverWait(driver,10).until(EC.element_to_be_clickable( (By.XPATH, "//*[@loggingname='status_tab_selector']") ))
-                commentr.click()
-    
-    
-    
-            commentr = WebDriverWait(driver,10).until(EC.element_to_be_clickable( (By.XPATH, "//*[@class='_3u15']") ))
-            commentr.click()
-    
-            sleep(3)
-            l=driver.find_elements_by_tag_name('input')
-            sleep(1)
-    
-            for g in l:
-                if g==driver.find_element_by_xpath("//input[@type='file'][@class='_n _5f0v']"):
-                    sleep(1)
-                    g.send_keys(ipath)
-                    print('image loaded')
-    
-    
-    
-    
-            sleep(10)
-            driver.find_element_by_xpath("//*[@class='_1mf _1mj']").send_keys(message)
-    
-            sleep(1)
-            buttons = driver.find_elements_by_tag_name("button")
-            sleep(1)
-            for button in buttons:
-                    if button.text == "Post":
-                        sleep(5)
-                        button.click()
-                        sleep(10)
-    
-        except Exception:
-            pass
-            print ('image not posted in '+group)
-    '''
 
 
 if __name__ == '__main__':
