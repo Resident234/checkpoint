@@ -12,6 +12,7 @@ from datetime import datetime
 
 from selenium import webdriver
 from selenium.common import NoSuchElementException, WebDriverException
+from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
@@ -19,10 +20,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 from hurry.filesize import size
 from urllib import parse
-
+from multiprocessing.pool import ThreadPool, Pool
+from multiprocessing import Process
+import threading
 import config
 
-home = 'https://www.facebook.com/'
+
+home: str = 'https://www.facebook.com/'
 folder = ""
 index_file = 1
 index_to_album = 0
@@ -32,16 +36,20 @@ progress_filename = f"progress.pkl"
 splited_size = 20
 renew_cookie = False
 
+threadLocal = threading.local()
 
-def init_driver():
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_experimental_option("detach", True)
-    chrome_options.add_argument("--disable-infobars")
-    chrome_options.add_experimental_option("prefs", {
-        "profile.default_content_setting_values.notifications": 2  # 1:allow, 2:block
-    })
+def get_driver() -> WebDriver:
+    driver = getattr(threadLocal, 'driver', None)
+    if driver is None:
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_experimental_option("detach", True)
+        chrome_options.add_argument("--disable-infobars")
+        chrome_options.add_experimental_option("prefs", {
+            "profile.default_content_setting_values.notifications": 2  # 1:allow, 2:block
+        })
 
-    driver = webdriver.Chrome(options=chrome_options)  #todo добавить опцию не показывать браузер
+        driver = webdriver.Chrome(options=chrome_options)  #todo добавить опцию не показывать браузер
+        setattr(threadLocal, 'driver', driver)
 
     return driver
 
@@ -99,15 +107,12 @@ def add_cookies(driver, filename):
     else:
         return False
 
-
 def save_progress(album_id, file_number, album_name):
     pickle.dump([album_id, file_number, album_name], open(progress_filename, 'wb'))
-
 
 def clear_saved_progress():
     if os.path.isfile(progress_filename):
         os.remove(progress_filename)
-
 
 def restore_progress() -> bool | tuple[Any]:
     try:
@@ -126,7 +131,6 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
 
     driver.get(f"{home}media/set/edit/a.{album_id}")
 
-    # todo попап "Мы удалили вашу публикацию" обрабатывать
     # Загрузка файлов
     files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
     set_files_to_field(files_input, files, files_meta)
@@ -134,6 +138,8 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
     # Кнопка "Добавить в альбом"
     sleep(5)
     while True:
+        check_popups(driver)
+
         add_dialogs = driver.find_elements(By.XPATH, "//*[text()='Добавить в альбом']")  # "//*[@aria-label='Добавление в альбом' and @role='dialog']"
         add_dialogs = add_dialogs[::-1]
         print(f"Открытых диалоговых окон: {len(add_dialogs)}")
@@ -311,6 +317,30 @@ def set_files_to_field(files_input: WebElement, files: list, files_meta: dict):
         print_progress_bar(size_to_album, size_all_files, prefix='Progress:', suffix='Complete', length=50)
         sleep(0.2)
 
+def check_popups(driver):
+    """
+    Попапы "Мы удалили вашу публикацию" и "Вы временно заблокированы" обрабатывать
+    :param driver:
+    """
+    need_return = False
+    popup_text = None
+    try:
+        popup = driver.find_element(By.XPATH, "//*[text()='Вы временно заблокированы' or text()='Мы удалили вашу публикацию']")
+        popup_text = popup.text
+        button = driver.find_element(By.XPATH, "//*[text()='OK']")
+        button.click()
+    except WebDriverException:
+        need_return = True
+
+
+    if need_return:
+        return need_return
+
+    print(f"Обнаружен попап {popup_text}")
+    sleep(10 * 60)
+    return True
+
+
 def main():
     global index_file
 
@@ -320,11 +350,10 @@ def main():
 
     parse_cli_args()
 
-    driver = init_driver()
+    driver = get_driver()
 
     # Go to facebook.com
     driver.get(home)
-    # todo Распознавать попап "Вы временно заблокированы"
 
     if renew_cookie or not add_cookies(driver, cookie_filename):
         login(driver, usr, pwd)
@@ -359,7 +388,7 @@ def main():
         del files_splited[0]
     else:
         album_id = progress[0]
-        album_name = progress[3]
+        album_name = progress[2]
 
     while True:
         if not files_splited:
