@@ -63,19 +63,25 @@ def login(driver, usr, pwd):
     elem.send_keys(pwd)
     # Login
     elem.send_keys(Keys.RETURN)
-    #element = WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.ID, "element_id")))
-    sleep(70)
 
+
+def two_step_verification_wait(driver):
+    """
+    бесконечное ожидание, пока я вход на телефоне не подтвержу
+    :param driver:
+    """
+    WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
+    WebDriverWait(driver, 1000).until(lambda x: not driver.current_url.find('/two_step_verification/two_factor/') != -1)
 
 def add_trusted_device(driver):
-    # Если появится кпонка "Сделать устройство доверенным"
-    # todo включить бесконечное ожидание, пока я вход на телефоне не подтвержу
+    """
+    Если появится кпонка "Сделать устройство доверенным"
+    :param driver:
+    """
     # todo папку задавать на входе, полный путь к ней искать самостоятельно
-    body = driver.find_element(By.CSS_SELECTOR, "body")
-    body.click()
 
     try:
-        button = driver.find_element(By.XPATH, "//*[text()='Сделать это устройство доверенным']")
+        button = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Сделать это устройство доверенным']")))
         button.click()
     except NoSuchElementException:
         pass
@@ -357,6 +363,7 @@ def main():
 
     if renew_cookie or not add_cookies(driver, cookie_filename):
         login(driver, usr, pwd)
+        two_step_verification_wait(driver)
         add_trusted_device(driver)
         save_cookies(driver, cookie_filename)
 
