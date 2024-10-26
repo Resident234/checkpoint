@@ -30,11 +30,12 @@ folder = ""
 index_file = 1
 index_to_album = 0
 size_to_album = 0
-cookie_filename = f"fb.pkl"  # todo в название файла логин добавить
+cookie_filename = "fb.pkl"
 progress_filename = f"progress.pkl"
 splited_size = 20
 renew_cookie = False
 root_folder = ''
+is_headless = False
 
 threadLocal = threading.local()
 
@@ -47,8 +48,10 @@ def get_driver() -> WebDriver:
         chrome_options.add_experimental_option("prefs", {
             "profile.default_content_setting_values.notifications": 2  # 1:allow, 2:block
         })
+        if is_headless:
+            chrome_options.add_argument("--headless")
 
-        driver = webdriver.Chrome(options=chrome_options)  #todo добавить опцию не показывать браузер
+        driver = webdriver.Chrome(options=chrome_options)
         setattr(threadLocal, 'driver', driver)
 
     return driver
@@ -270,19 +273,22 @@ def parse_cli_args():
     Пример ввода
     run.py --folder "D:\\PHOTO\\Домашние\\АРХИВЫ\\РАЗНОЕ\\Мамина работа\\к педсовету" --renewcookie --splitedsize=30
     run.py --folder "Стар. фото из Протасово -родня" --splitedsize=10 --rootfolder "D:\\PHOTO"
+    run.py --folder "Фото 2009 г" --splitedsize=10 --rootfolder "D:\\PHOTO" --headless
     """
-    global folder, renew_cookie, splited_size, root_folder
+    global folder, renew_cookie, splited_size, root_folder, is_headless
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--folder', dest='folder', type=str, help='Full path to the folder', required=True)
     parser.add_argument('--renewcookie', help='Force renew cookie', action="store_true")
     parser.add_argument('--splitedsize', help='How many files to send to the album per iteration', type=int, default=20)
     parser.add_argument('--rootfolder', help='Root folder for target folder', type=str)
+    parser.add_argument('--headless', help='Run without any GUI', action="store_true")
     args = parser.parse_args()
     folder = args.folder
     renew_cookie = args.renewcookie
     splited_size = args.splitedsize
     root_folder = args.rootfolder
+    is_headless = args.headless
 
 def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
@@ -386,6 +392,7 @@ def main():
     # Your Facebook account user and password
     usr = config.USER_NAME
     pwd = config.PASSWORD
+    #cookie_filename = usr + ' ' + cookie_filename todo в название файла логин добавить
 
     parse_cli_args()
 
