@@ -223,6 +223,8 @@ def create_album(driver, files: list[str], files_meta: dict):
             repeat_button.click()
             retry_count += 1
             print(f"Повторная загрузка файлов с ошибками. Попытка {retry_count}")
+        except NoSuchElementException:
+            pass
         except WebDriverException:
             retry_count += 1
 
@@ -249,6 +251,7 @@ def create_album(driver, files: list[str], files_meta: dict):
             submit_button.click()
         except WebDriverException:
             continue
+
         print("Отправка формы")
 
         break
