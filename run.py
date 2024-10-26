@@ -1,30 +1,29 @@
 #!/usr/bin/env python3
-import os
-import sys
-import pickle
 import argparse
-import filetype
-from os import listdir
-from os.path import isfile, join
-from time import sleep
-from typing import Tuple, Any
+import os
+import pickle
+import sys
+import threading
 from datetime import datetime
+from os import listdir
+from os.path import isfile, isdir, join
+from pathlib import Path
+from time import sleep
+from typing import Any
+from urllib import parse
 
+import filetype
+from hurry.filesize import size
 from selenium import webdriver
 from selenium.common import NoSuchElementException, WebDriverException
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
-from hurry.filesize import size
-from urllib import parse
-from multiprocessing.pool import ThreadPool, Pool
-from multiprocessing import Process
-import threading
-import config
+from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
+import config
 
 home: str = 'https://www.facebook.com/'
 folder = ""
@@ -35,6 +34,7 @@ cookie_filename = f"fb.pkl"  # todo в название файла логин д
 progress_filename = f"progress.pkl"
 splited_size = 20
 renew_cookie = False
+root_folder = ''
 
 threadLocal = threading.local()
 
@@ -78,7 +78,6 @@ def add_trusted_device(driver):
     Если появится кпонка "Сделать устройство доверенным"
     :param driver:
     """
-    # todo папку задавать на входе, полный путь к ней искать самостоятельно
 
     try:
         button = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Сделать это устройство доверенным']")))
@@ -267,17 +266,20 @@ def parse_cli_args():
     """
     Пример ввода
     run.py --folder "D:\\PHOTO\\Домашние\\АРХИВЫ\\РАЗНОЕ\\Мамина работа\\к педсовету" --renewcookie --splitedsize=30
+    run.py --folder "Стар. фото из Протасово -родня" --splitedsize=10 --rootfolder "D:\\PHOTO"
     """
-    global folder, renew_cookie, splited_size
+    global folder, renew_cookie, splited_size, root_folder
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--folder', dest='folder', type=str, help='Full path to the folder', required=True)
     parser.add_argument('--renewcookie', help='Force renew cookie', action="store_true")
     parser.add_argument('--splitedsize', help='How many files to send to the album per iteration', type=int, default=20)
+    parser.add_argument('--rootfolder', help='Root folder for target folder', type=str)
     args = parser.parse_args()
     folder = args.folder
     renew_cookie = args.renewcookie
     splited_size = args.splitedsize
+    root_folder = args.rootfolder
 
 def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
@@ -346,9 +348,37 @@ def check_popups(driver):
     sleep(10 * 60)
     return True
 
+def search_folder_recursive(folder: str, root_path: str = '.') -> str|None:
+    """
+
+    :return:
+    :rtype: object
+    :return:
+    :param root_path:
+    :type folder: object
+    """
+
+    def listdir_r(dirpath, searching_folder):
+        paths = []
+        for path in listdir(dirpath):
+            rpath = join(dirpath, path)
+            if isdir(rpath):
+                if searching_folder == path:
+                    paths.append(rpath)
+                    break
+                else:
+                    subdirs = listdir_r(rpath, searching_folder)
+                    if not subdirs == []:
+                        paths.extend(subdirs)
+        return paths if paths else []
+
+    paths = listdir_r(root_path, folder)
+
+    return paths[0] if paths else None
+
 
 def main():
-    global index_file
+    global index_file, folder
 
     # Your Facebook account user and password
     usr = config.USER_NAME
@@ -373,6 +403,12 @@ def main():
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
     #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
+
+    if folder.split('\\').__len__() == 1:
+        # Задано только название папки, а не полный путь - найти папку
+        folder = search_folder_recursive(folder, root_folder.replace('\\\\', '\\') if root_folder else 'D:\\')
+
+    print(f"Полный путь к папке {folder}")
 
     files = [(f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))]
 
