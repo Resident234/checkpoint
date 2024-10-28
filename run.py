@@ -170,8 +170,8 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
 
             break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
 
-    submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому']") # todo предусмотреть если вместо этой кнопки кнопка Сохранить
-    submit_label = driver.find_element(By.XPATH, "//*[@aria-label='К альбому']")
+    submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
+    submit_label = driver.find_element(By.XPATH, "//*[@aria-label='К альбому' or @aria-label='Сохранить']")
 
     while True:
         sleep(1)
@@ -409,7 +409,7 @@ def main():
 
     #todo обрыв связи обрабатывать
     #todo очистка списка от дубликатов
-    #todo распознавать капчу и ждать ввода
+    #todo распознавать капчу и ждать ввода Введите символы, которые вы видите
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
     #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
