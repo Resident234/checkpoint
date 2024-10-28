@@ -11,7 +11,7 @@ from pathlib import Path
 from time import sleep
 from typing import Any
 from urllib import parse
-
+import hashlib
 import filetype
 from hurry.filesize import size
 from selenium import webdriver
@@ -385,6 +385,20 @@ def search_folder_recursive(folder: str, root_path: str = '.') -> str|None:
 
     return paths[0] if paths else None
 
+def get_hash(f):
+    # BUF_SIZE is totally arbitrary, change for your app!
+    BUF_SIZE = 65536  # lets read stuff in 64kb chunks!
+
+    md5 = hashlib.md5()
+
+    with open(f, 'rb') as f:
+        while True:
+            data = f.read(BUF_SIZE)
+            if not data:
+                break
+            md5.update(data)
+
+    return md5.hexdigest()
 
 def main():
     global index_file, folder
@@ -403,13 +417,10 @@ def main():
 
     if renew_cookie or not add_cookies(driver, cookie_filename):
         login(driver, usr, pwd)
+        # todo распознавать капчу и ждать ввода Введите символы, которые вы видите
         two_step_verification_wait(driver)
         add_trusted_device(driver)
         save_cookies(driver, cookie_filename)
-
-    #todo обрыв связи обрабатывать
-    #todo очистка списка от дубликатов
-    #todo распознавать капчу и ждать ввода Введите символы, которые вы видите
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
     #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
@@ -420,7 +431,8 @@ def main():
 
     print(f"Полный путь к папке {folder}")
 
-    files = [(f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))]
+    files = {get_hash(join(folder, f)): (f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))}
+    files = files.values()
 
     progress = restore_progress()
     if progress:
