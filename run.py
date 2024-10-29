@@ -67,6 +67,19 @@ def login(driver, usr, pwd):
     # Login
     elem.send_keys(Keys.RETURN)
 
+def check_captcha(driver):
+    """
+    Распознавать страницу запроса капчу и ждать ввода
+    :param driver:
+    """
+
+    try:
+        WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
+        WebDriverWait(driver, 1000).until(lambda x: not driver.current_url.find('/two_step_verification/authentication/') != -1)
+    except NoSuchElementException:
+        pass
+
+    sleep(2)
 
 def two_step_verification_wait(driver):
     """
@@ -268,6 +281,19 @@ def create_album(driver, files: list[str], files_meta: dict):
 
     return (int(album_id), album_name)
 
+def set_album_confidentiality(driver, album_id: int):
+    """
+    Изменить видимость альбома
+    :param driver:
+    :param album_id:
+    """
+    driver.get(f"{home}media/set/edit/a.{album_id}")
+    button = driver.find_element(By.XPATH, "//*[contains(@aria-label,'Изменить конфиденциальность.')]")
+    button.click()
+    WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Выберите аудиторию']")))
+
+
+
 def parse_cli_args():
     """
     Пример ввода
@@ -417,7 +443,7 @@ def main():
 
     if renew_cookie or not add_cookies(driver, cookie_filename):
         login(driver, usr, pwd)
-        # todo распознавать капчу и ждать ввода Введите символы, которые вы видите
+        check_captcha(driver)
         two_step_verification_wait(driver)
         add_trusted_device(driver)
         save_cookies(driver, cookie_filename)
@@ -450,6 +476,7 @@ def main():
     if not progress:
         # Создание альбома и загрузка файлов
         album_id, album_name = create_album(driver, files_splited[0], files_meta)
+        set_album_confidentiality(driver)# todo Менять видимость альбома
         del files_splited[0]
     else:
         album_id = progress[0]
@@ -467,7 +494,7 @@ def main():
     print(f"Загружено файлов: {files_count} {size(sum(files_sizes))}")
     clear_saved_progress()
 
-    sleep(500)# todo Менять видимость альбома
+    sleep(500)
 
     driver.close()
 
