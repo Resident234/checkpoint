@@ -463,7 +463,7 @@ def main():
     print(f"Полный путь к папке {folder}")
 
     files = {get_hash(join(folder, f)): (f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))}
-    files = files.values()
+    files = list(files.values())
 
     progress = restore_progress()
     if progress:
