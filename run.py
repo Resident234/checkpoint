@@ -291,7 +291,12 @@ def set_album_confidentiality(driver, album_id: int):
     button = driver.find_element(By.XPATH, "//*[contains(@aria-label,'Изменить конфиденциальность.')]")
     button.click()
     WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Выберите аудиторию']")))
-
+    button = driver.find_element(By.XPATH, "//*[text()='Только я']")
+    button.click()
+    button = driver.find_element(By.XPATH, "//*[text()='Готово']")
+    button.click()
+    submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
+    submit_button.click()
 
 
 def parse_cli_args():
@@ -476,7 +481,7 @@ def main():
     if not progress:
         # Создание альбома и загрузка файлов
         album_id, album_name = create_album(driver, files_splited[0], files_meta)
-        set_album_confidentiality(driver)# todo Менять видимость альбома
+        set_album_confidentiality(driver)
         del files_splited[0]
     else:
         album_id = progress[0]
