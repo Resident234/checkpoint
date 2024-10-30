@@ -297,6 +297,8 @@ def set_album_confidentiality(driver, album_id: int):
     button.click()
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
     submit_button.click()
+    sleep(3)
+    print('Настройка видимости альбома')
 
 
 def parse_cli_args():
@@ -481,7 +483,7 @@ def main():
     if not progress:
         # Создание альбома и загрузка файлов
         album_id, album_name = create_album(driver, files_splited[0], files_meta)
-        set_album_confidentiality(driver)
+        set_album_confidentiality(driver, album_id)
         del files_splited[0]
     else:
         album_id = progress[0]
