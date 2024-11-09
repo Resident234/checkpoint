@@ -377,7 +377,7 @@ def check_popups(driver):
     try:
         popup = driver.find_element(By.XPATH, "//*[text()='Вы временно заблокированы' or text()='Мы удалили вашу публикацию']")
         popup_text = popup.text
-        button = driver.find_element(By.XPATH, "//*[text()='OK']")
+        button = driver.find_element(By.XPATH, "//*[text()='OK' or @aria-label='Мы удалили вашу публикацию']")
         button.click()
     except WebDriverException:
         need_return = True
@@ -435,6 +435,7 @@ def get_hash(f):
 
 def main():
     global index_file, folder
+    # todo проверка если куки истекли, но по факту авторизаци с ними произошал успешно
 
     # Your Facebook account user and password
     usr = config.USER_NAME
@@ -464,7 +465,7 @@ def main():
 
     print(f"Полный путь к папке {folder}")
 
-    files = {get_hash(join(folder, f)): (f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f))}
+    files = {get_hash(join(folder, f)): (f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f)) and os.path.splitext(join(folder, f))[1] != '.psd'}
     files = list(files.values())
 
     progress = restore_progress()
@@ -501,9 +502,10 @@ def main():
     print(f"Загружено файлов: {files_count} {size(sum(files_sizes))}")
     clear_saved_progress()
 
-    sleep(500)
+    #todo если вызываем с параметром обновления cookie, то окно показывать игнорирую headless
+    sleep(50)
 
-    driver.close()
+    driver.close()# todo в wait паузы увеличить
 
 
 if __name__ == '__main__':
