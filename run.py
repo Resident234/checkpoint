@@ -15,7 +15,7 @@ import hashlib
 import filetype
 from hurry.filesize import size
 from selenium import webdriver
-from selenium.common import NoSuchElementException, WebDriverException
+from selenium.common import NoSuchElementException, WebDriverException, TimeoutException
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -73,10 +73,10 @@ def check_captcha(driver):
     :param driver:
     """
 
-    try:
+    try:#todo оптимизировать это ожидание
         WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
         WebDriverWait(driver, 1000).until(lambda x: not driver.current_url.find('/two_step_verification/authentication/') != -1)
-    except NoSuchElementException:
+    except WebDriverException:
         pass
 
     sleep(2)
@@ -86,8 +86,11 @@ def two_step_verification_wait(driver):
     бесконечное ожидание, пока я вход на телефоне не подтвержу
     :param driver:
     """
-    WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
-    WebDriverWait(driver, 1000).until(lambda x: not driver.current_url.find('/two_step_verification/two_factor/') != -1)
+    try:
+        WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
+        WebDriverWait(driver, 1000).until(lambda x: not driver.current_url.find('/two_step_verification/two_factor/') != -1)
+    except WebDriverException:
+        pass
 
 def add_trusted_device(driver):
     """
