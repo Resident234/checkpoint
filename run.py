@@ -36,6 +36,7 @@ splited_size = 20
 renew_cookie = False
 root_folder = ''
 is_headless = False
+#todo если файлов мало и в прогремм уже нечего записывать, то файл прогресса надо чистить
 
 threadLocal = threading.local()
 
@@ -59,10 +60,10 @@ def get_driver() -> WebDriver:
 
 def login(driver, usr, pwd):
     # Enter user email
-    elem = driver.find_element(By.ID, "email")
+    elem = driver.find_element(By.NAME, "email")
     elem.send_keys(usr)
     # Enter user password
-    elem = driver.find_element(By.ID, "pass")
+    elem = driver.find_element(By.NAME, "pass")
     elem.send_keys(pwd)
     # Login
     elem.send_keys(Keys.RETURN)
@@ -201,8 +202,12 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
         print("Отправка формы")
         break
 
-    x, x, album_name = restore_progress()
-    save_progress(album_id, index_file, album_name)
+    progress = restore_progress()
+    if progress:
+        x, x, album_name = progress
+        save_progress(album_id, index_file, album_name)
+    else:
+        clear_saved_progress()
 
 def create_album(driver, files: list[str], files_meta: dict):
     """
@@ -291,7 +296,7 @@ def set_album_confidentiality(driver, album_id: int):
     :param album_id:
     """
     driver.get(f"{home}media/set/edit/a.{album_id}")
-    button = driver.find_element(By.XPATH, "//*[contains(@aria-label,'Изменить конфиденциальность.')]")
+    button = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[contains(@aria-label,'Изменить конфиденциальность.')]")))
     button.click()
     WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Выберите аудиторию']")))
     button = driver.find_element(By.XPATH, "//*[text()='Только я']")
@@ -318,7 +323,7 @@ def parse_cli_args():
     parser.add_argument('--renewcookie', help='Force renew cookie', action="store_true")
     parser.add_argument('--splitedsize', help='How many files to send to the album per iteration', type=int, default=20)
     parser.add_argument('--rootfolder', help='Root folder for target folder', type=str)
-    parser.add_argument('--headless', help='Run without any GUI', action="store_true")
+    parser.add_argument('--headless', help='Run without any GUI', action="store_true")#todo очистку прогресса добавить
     args = parser.parse_args()
     folder = args.folder
     renew_cookie = args.renewcookie
@@ -378,7 +383,7 @@ def check_popups(driver):
     need_return = False
     popup_text = None
     try:
-        popup = driver.find_element(By.XPATH, "//*[text()='Вы временно заблокированы' or text()='Мы удалили вашу публикацию']")
+        popup = driver.find_element(By.XPATH, "//*[text()='Вы временно заблокированы' or text()='Мы удалили вашу публикацию']")#todo прогресс бар еще радом с этим сообщением выводить
         popup_text = popup.text
         button = driver.find_element(By.XPATH, "//*[text()='OK' or @aria-label='Мы удалили вашу публикацию']")
         button.click()
@@ -460,6 +465,7 @@ def main():
         save_cookies(driver, cookie_filename)
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
+    # Попап блокировки распозначать на этапе создания нового альбома
     #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
 
     if folder.split('\\').__len__() == 1:
@@ -468,41 +474,44 @@ def main():
 
     print(f"Полный путь к папке {folder}")
 
-    files = {get_hash(join(folder, f)): (f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f)) and os.path.splitext(join(folder, f))[1] != '.psd'}
-    files = list(files.values())
+    files = {get_hash(join(folder, f)): (f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f)) and os.path.splitext(join(folder, f))[1].lower() not in ['.psd', '.mpo']}
+    files = all_files = list(files.values()) #todo прогресс баг при вычислении хешей
+    if files:
+        progress = restore_progress()
+        if progress:
+            index_file = progress[1]
+            del files[0:index_file]
 
-    progress = restore_progress()
-    if progress:
-        index_file = progress[1]
-        del files[0:index_file]
+        files_count = len(files)
+        if files_count == 0:
+            files = all_files
+        files_meta = dict(files)
+        files, files_sizes = zip(*files)
 
-    files_count = len(files)
-    files_meta = dict(files)
-    files, files_sizes = zip(*files)
+        print(f"Найдено файлов для загрузки {files_count} {size(sum(files_sizes))}")
 
-    print(f"Найдено файлов для загрузки {files_count} {size(sum(files_sizes))}")
+        files_splited = [files[x:x + splited_size] for x in range(0, len(files), splited_size)]
 
-    files_splited = [files[x:x + splited_size] for x in range(0, len(files), splited_size)]
+        if not progress:
+            # Создание альбома и загрузка файлов
+            album_id, album_name = create_album(driver, files_splited[0], files_meta)
+            set_album_confidentiality(driver, album_id)
+            del files_splited[0]
+        else:
+            album_id = progress[0]
+            album_name = progress[2]
 
-    if not progress:
-        # Создание альбома и загрузка файлов
-        album_id, album_name = create_album(driver, files_splited[0], files_meta)
-        set_album_confidentiality(driver, album_id)
-        del files_splited[0]
-    else:
-        album_id = progress[0]
-        album_name = progress[2]
+        while True:
+            if not files_splited:
+                clear_saved_progress()
+                break
+            upload_to_album(driver, album_id=album_id, files=files_splited[0], files_meta=files_meta)
+            del files_splited[0]
 
-    while True:
-        if not files_splited:
-            break
-        upload_to_album(driver, album_id=album_id, files=files_splited[0], files_meta=files_meta)
-        del files_splited[0]
-
-    print("Загрузка завершена\n")
-    print(f"Название альбома: {album_name}")
-    print(f"ID альбома: {album_id}")
-    print(f"Загружено файлов: {files_count} {size(sum(files_sizes))}")
+        print("Загрузка завершена\n")
+        print(f"Название альбома: {album_name}")
+        print(f"ID альбома: {album_id}")
+        print(f"Загружено файлов: {files_count} {size(sum(files_sizes))}")
     clear_saved_progress()
 
     #todo если вызываем с параметром обновления cookie, то окно показывать игнорирую headless
