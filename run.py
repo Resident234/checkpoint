@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import os
 import pickle
@@ -36,6 +38,7 @@ splited_size = 20
 renew_cookie = False
 root_folder = ''
 is_headless = False
+check_duplicates = False
 #todo если файлов мало и в прогремм уже нечего записывать, то файл прогресса надо чистить
 
 threadLocal = threading.local()
@@ -57,7 +60,8 @@ def get_driver() -> WebDriver:
 
     return driver
 
-
+#todo если файлы для загрузкине найдены, сообщение об этом выводить
+#todo таймер ожадиния с обратным отсчетом
 def login(driver, usr, pwd):
     # Enter user email
     elem = driver.find_element(By.NAME, "email")
@@ -307,6 +311,7 @@ def set_album_confidentiality(driver, album_id: int):
     submit_button.click()
     sleep(3)
     print('Настройка видимости альбома')
+    # todo на первом запуске стал валиться
 
 
 def parse_cli_args():
@@ -316,20 +321,22 @@ def parse_cli_args():
     run.py --folder "Стар. фото из Протасово -родня" --splitedsize=10 --rootfolder "D:\\PHOTO"
     run.py --folder "Фото 2009 г" --splitedsize=10 --rootfolder "D:\\PHOTO" --headless
     """
-    global folder, renew_cookie, splited_size, root_folder, is_headless
+    global folder, renew_cookie, splited_size, root_folder, is_headless, check_duplicates
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--folder', dest='folder', type=str, help='Full path to the folder', required=True)
-    parser.add_argument('--renewcookie', help='Force renew cookie', action="store_true")
     parser.add_argument('--splitedsize', help='How many files to send to the album per iteration', type=int, default=20)
     parser.add_argument('--rootfolder', help='Root folder for target folder', type=str)
     parser.add_argument('--headless', help='Run without any GUI', action="store_true")#todo очистку прогресса добавить
+    parser.add_argument('--renewcookie', help='Force renew cookie', action="store_true")
+    parser.add_argument('--checkduplicates', help='Check for duplicates before uploading', action="store_true")
     args = parser.parse_args()
     folder = args.folder
     renew_cookie = args.renewcookie
     splited_size = args.splitedsize
     root_folder = args.rootfolder
     is_headless = args.headless
+    check_duplicates = args.checkduplicates
 
 def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
@@ -383,11 +390,21 @@ def check_popups(driver):
     need_return = False
     popup_text = None
     try:
-        popup = driver.find_element(By.XPATH, "//*[text()='Вы временно заблокированы' or text()='Мы удалили вашу публикацию']")#todo прогресс бар еще радом с этим сообщением выводить
+        popup = driver.find_element(By.XPATH, "//*[text()='Вы временно заблокированы' or text()='Мы удалили вашу публикацию' or text()='Что произошло']")
+        #todo прогресс бар еще радом с этим сообщением выводить
         popup_text = popup.text
-        button = driver.find_element(By.XPATH, "//*[text()='OK' or @aria-label='Мы удалили вашу публикацию']")
-        button.click()
-    except WebDriverException:
+        buttons = driver.find_elements(By.XPATH, "//*[text()='OK' or @aria-label='Закрыть']")
+
+        for button in buttons:
+            try:
+                button.click()
+            except WebDriverException:
+                continue
+            
+            need_return = False
+            break
+
+    except WebDriverException as e:
         need_return = True
 
 
@@ -473,9 +490,12 @@ def main():
         folder = search_folder_recursive(folder, root_folder.replace('\\\\', '\\') if root_folder else 'D:\\')
 
     print(f"Полный путь к папке {folder}")
+    #todo при заблокированности теймер до повторной попытки выводить
+    
 
-    files = {get_hash(join(folder, f)): (f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f)) and os.path.splitext(join(folder, f))[1].lower() not in ['.psd', '.mpo']}
-    files = all_files = list(files.values()) #todo прогресс баг при вычислении хешей
+    files = {(get_hash(join(folder, f)) if check_duplicates else join(folder, f)): (f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f)) and os.path.splitext(join(folder, f))[1].lower() not in ['.psd', '.mpo', '.thm']}
+    all_files = list(files.values()) #todo прогресс баг при вычислении хешей
+    files = all_files.copy() 
     if files:
         progress = restore_progress()
         if progress:
