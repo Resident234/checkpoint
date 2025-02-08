@@ -31,7 +31,9 @@ home: str = 'https://www.facebook.com/'
 folder = ""
 index_file = 1
 index_to_album = 0
+count_all_files = 0
 size_to_album = 0
+size_all_files = 0
 cookie_filename = "fb.pkl"
 progress_filename = f"progress.pkl"
 splited_size = 20
@@ -39,6 +41,7 @@ renew_cookie = False
 root_folder = ''
 is_headless = False
 check_duplicates = False
+recursive = False
 #todo если файлов мало и в прогремм уже нечего записывать, то файл прогресса надо чистить
 
 threadLocal = threading.local()
@@ -152,7 +155,7 @@ def restore_progress() -> bool | tuple[Any]:
     return *progress,
 
 
-def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
+def upload_to_album(driver, album_id: int, files: list[str]):
     # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
     global index_file, index_to_album, size_to_album
 
@@ -162,7 +165,7 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
 
     # Загрузка файлов
     files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
-    set_files_to_field(files_input, files, files_meta)
+    set_files_to_field(files_input, files)
 
     # Кнопка "Добавить в альбом"
     sleep(5)
@@ -213,19 +216,24 @@ def upload_to_album(driver, album_id: int, files: list[str], files_meta: dict):
     else:
         clear_saved_progress()
 
-def create_album(driver, files: list[str], files_meta: dict):
+def create_album(driver, files: list[str]):
     """
+    Creates an album in the media management interface by uploading files, specifying album name, and handling errors
+    during file uploads. This function ensures that the album is properly created with its unique identifier and descriptive
+    name while managing potential issues arising from problematic file uploads.
 
-    :param driver:
-    :param files:
-    :param files_meta:
-    :return: album_id
+    :param driver: WebDriver instance used to interact with the web page for creating the album.
+    :type driver: WebDriver
+    :param files: List of file paths to be uploaded as part of the album.
+    :type files: list[str]
+    :return: A tuple containing the album's unique identifier as an integer and its descriptive name as a string.
+    :rtype: tuple[int, str]
     """
     global index_file, index_to_album
     driver.get(home + "media/set/create")
 
     files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
-    set_files_to_field(files_input, files, files_meta)
+    set_files_to_field(files_input, files)
 
     # Ввести название альбома
     album_name = folder.split("\\")
@@ -320,8 +328,9 @@ def parse_cli_args():
     run.py --folder "D:\\PHOTO\\Домашние\\АРХИВЫ\\РАЗНОЕ\\Мамина работа\\к педсовету" --renewcookie --splitedsize=30
     run.py --folder "Стар. фото из Протасово -родня" --splitedsize=10 --rootfolder "D:\\PHOTO"
     run.py --folder "Фото 2009 г" --splitedsize=10 --rootfolder "D:\\PHOTO" --headless
+    run.py --folder "Хабаровск" --splitedsize=10 --rootfolder D:\\PHOTO --headless --recursive
     """
-    global folder, renew_cookie, splited_size, root_folder, is_headless, check_duplicates
+    global folder, renew_cookie, splited_size, root_folder, is_headless, check_duplicates, recursive
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--folder', dest='folder', type=str, help='Full path to the folder', required=True)
@@ -330,6 +339,7 @@ def parse_cli_args():
     parser.add_argument('--headless', help='Run without any GUI', action="store_true")#todo очистку прогресса добавить
     parser.add_argument('--renewcookie', help='Force renew cookie', action="store_true")
     parser.add_argument('--checkduplicates', help='Check for duplicates before uploading', action="store_true")
+    parser.add_argument('--recursive', help='Search files in subfolders', action="store_true")
     args = parser.parse_args()
     folder = args.folder
     renew_cookie = args.renewcookie
@@ -337,6 +347,7 @@ def parse_cli_args():
     root_folder = args.rootfolder
     is_headless = args.headless
     check_duplicates = args.checkduplicates
+    recursive = args.recursive
 
 def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
@@ -358,25 +369,22 @@ def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1,
     if iteration == total:
         print()
 
-def set_files_to_field(files_input: WebElement, files: list, files_meta: dict):
-    global index_file, index_to_album, size_to_album
-
-    files_count = len(files_meta)
-    size_all_files = sum(files_meta.values())
+def set_files_to_field(files_input: WebElement, files: list):
+    global index_file, index_to_album, count_all_files, size_to_album, size_all_files
 
     # Initial call to print 0% progress
     print_progress_bar(size_to_album, size_all_files, prefix='Progress:', suffix='Complete', length=50)
 
     for file in files:
-        ipath = '\\'.join([folder, file])
-        print(f"Загрузка фото: {file} {size(files_meta[file])}")
+        ipath = file[1][-1]
+        print(f"Загрузка фото: {file[1][0]} {size(file[1][1])}")
         files_input.send_keys(ipath)
         sys.stdout.flush()
         index_file += 1
         index_to_album += 1
-        size_to_album += files_meta[file]
+        size_to_album += file[1][1]
         print(
-            f"Загружено {index_to_album} фото из {files_count} ({size(size_to_album)} из {size(size_all_files)})",
+            f"Загружено {index_to_album} фото из {count_all_files} ({size(size_to_album)} из {size(size_all_files)})",
             flush=True
         )
         print_progress_bar(size_to_album, size_all_files, prefix='Progress:', suffix='Complete', length=50)
@@ -404,7 +412,7 @@ def check_popups(driver):
             need_return = False
             break
 
-    except WebDriverException as e:
+    except WebDriverException:
         need_return = True
 
 
@@ -458,13 +466,23 @@ def get_hash(f):
 
     return md5.hexdigest()
 
+
+def get_files_size(files: list, print: bool = True) -> int|str:
+    files_sizes = [size for _, (_, size, _) in files]
+    return size(sum(files_sizes)) if print else sum(files_sizes)
+
+
 def main():
-    global index_file, folder
+    global index_file, folder, size_all_files, count_all_files
     # todo проверка если куки истекли, но по факту авторизаци с ними произошал успешно
 
     # Your Facebook account user and password
     usr = config.USER_NAME
     pwd = config.PASSWORD
+
+    if not usr or not pwd:
+        print("Error: Missing Facebook credentials.")
+        sys.exit(1)
     #cookie_filename = usr + ' ' + cookie_filename todo в название файла логин добавить
 
     parse_cli_args()
@@ -483,7 +501,6 @@ def main():
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
     # Попап блокировки распозначать на этапе создания нового альбома
-    #folder = "D:\\PHOTO\\Домашние\\АРХИВЫ\\ПРИРОДА виды улица интерьеры животные\\2012 г" #todo дозакинуть
 
     if folder.split('\\').__len__() == 1:
         # Задано только название папки, а не полный путь - найти папку
@@ -491,30 +508,44 @@ def main():
 
     print(f"Полный путь к папке {folder}")
     #todo при заблокированности теймер до повторной попытки выводить
-    
 
-    files = {(get_hash(join(folder, f)) if check_duplicates else join(folder, f)): (f, os.path.getsize(join(folder, f))) for f in listdir(folder) if isfile(join(folder, f)) and filetype.is_image(join(folder, f)) and os.path.splitext(join(folder, f))[1].lower() not in ['.psd', '.mpo', '.thm']}
-    all_files = list(files.values()) #todo прогресс баг при вычислении хешей
-    files = all_files.copy() 
+    files = {
+        (get_hash(join(root, f)) if check_duplicates else join(root, f)): (
+        f, os.path.getsize(join(root, f)), join(root, f))
+        for root, _, filenames in (os.walk(folder) if recursive else [(folder, [], listdir(folder))])
+        for f in filenames
+        if isfile(join(root, f))
+           and filetype.is_image(join(root, f))
+           and os.path.splitext(f)[1].lower() not in ['.psd', '.mpo', '.thm']
+    }
+
+    #files {id: (название, размер, полное название)}
+
     if files:
+        files = [(id, (name, size, full_name)) for id, (name, size, full_name) in files.items()]
+        # files [(id, (название, размер, полное название))]
+        all_files = files.copy()
+
         progress = restore_progress()
         if progress:
             index_file = progress[1]
             del files[0:index_file]
 
-        files_count = len(files)
-        if files_count == 0:
+        count_all_files = len(files)
+        if count_all_files == 0:
             files = all_files
-        files_meta = dict(files)
-        files, files_sizes = zip(*files)
+        count_all_files = len(files)
 
-        print(f"Найдено файлов для загрузки {files_count} {size(sum(files_sizes))}")
+        size_all_files = get_files_size(files, False)
+        size_all_files_formatted = get_files_size(files, True)
+
+        print(f"Найдено файлов для загрузки {count_all_files} {size_all_files_formatted}")
 
         files_splited = [files[x:x + splited_size] for x in range(0, len(files), splited_size)]
 
         if not progress:
             # Создание альбома и загрузка файлов
-            album_id, album_name = create_album(driver, files_splited[0], files_meta)
+            album_id, album_name = create_album(driver, files_splited[0])
             set_album_confidentiality(driver, album_id)
             del files_splited[0]
         else:
@@ -525,17 +556,17 @@ def main():
             if not files_splited:
                 clear_saved_progress()
                 break
-            upload_to_album(driver, album_id=album_id, files=files_splited[0], files_meta=files_meta)
+            upload_to_album(driver, album_id=album_id, files=files_splited[0])
             del files_splited[0]
 
         print("Загрузка завершена\n")
         print(f"Название альбома: {album_name}")
         print(f"ID альбома: {album_id}")
-        print(f"Загружено файлов: {files_count} {size(sum(files_sizes))}")
+        print(f"Загружено файлов: {count_all_files} {size_all_files_formatted}")
     clear_saved_progress()
 
     #todo если вызываем с параметром обновления cookie, то окно показывать игнорирую headless
-    sleep(50)
+    sleep(20)
 
     driver.close()# todo в wait паузы увеличить
 
