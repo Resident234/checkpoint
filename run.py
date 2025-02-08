@@ -42,7 +42,6 @@ root_folder = ''
 is_headless = False
 check_duplicates = False
 recursive = False
-#todo если файлов мало и в прогремм уже нечего записывать, то файл прогресса надо чистить
 
 threadLocal = threading.local()
 
@@ -145,6 +144,7 @@ def save_progress(album_id, file_number, album_name):
 def clear_saved_progress():
     if os.path.isfile(progress_filename):
         os.remove(progress_filename)
+    print(f"Сохраненный прогресс {progress_filename} очищен")
 
 def restore_progress() -> bool | tuple[Any]:
     try:
