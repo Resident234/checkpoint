@@ -62,8 +62,9 @@ def get_driver() -> WebDriver:
 
     return driver
 
-#todo если файлы для загрузкине найдены, сообщение об этом выводить
+
 #todo таймер ожадиния с обратным отсчетом
+#todo попап медиафайл успешно добавлен скрывать, возможно он мешает по кнопке перехода к альбому кликать
 def login(driver, usr, pwd):
     # Enter user email
     elem = driver.find_element(By.NAME, "email")
@@ -563,6 +564,10 @@ def main():
         print(f"Название альбома: {album_name}")
         print(f"ID альбома: {album_id}")
         print(f"Загружено файлов: {count_all_files} {size_all_files_formatted}")
+    else:
+        # если файлы для загрузки не найдены, сообщение об этом выводить
+        print("Файлы для загрузки не найдены")
+
     clear_saved_progress()
 
     #todo если вызываем с параметром обновления cookie, то окно показывать игнорирую headless
