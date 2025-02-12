@@ -1,6 +1,14 @@
-# FB Uploader
+![](assets/expanded_logo_1500px.png)
 
-## Overview
+<br>
+
+#### 🌐 FB Uploader
+
+<br>
+
+![Python minimum version](https://img.shields.io/badge/Python-3.9%2B-brightgreen)
+
+# 😊 Description
 
 This project is built using **Python 3.9.13** and makes use of the following installed packages:
 
@@ -10,20 +18,22 @@ This project is built using **Python 3.9.13** and makes use of the following ins
 
 The project provides functionality for [describe the main purpose or feature of your project briefly].
 
-## Features
+# Features
 
-- [Feature 1: Brief description of what the feature does]
-- [Feature 2: Brief description of what the feature does]
-- [Feature 3: Additional features as needed]
+- CLI usage and modules
+- Python library usage
 
-## Installation
+# ✔️ Requirements
+- Python >= 3.9
+
+# Installation
 
 To set up the project on your local machine, follow these steps:
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
-   cd <repository-folder>
+   git clone https://github.com/Resident234/fb_selenium_uploader.git
+   cd fb_selenium_uploader
    ```
 
 2. Create a virtual environment (recommended):
@@ -37,7 +47,7 @@ To set up the project on your local machine, follow these steps:
    pip install -r requirements.txt
    ```
 
-## Usage
+# Usage
 
 1. [Explain how to run the script or application]
    ```bash
@@ -48,7 +58,7 @@ To set up the project on your local machine, follow these steps:
 
 3. [Added instructions on how to use Selenium, if required]
 
-## Dependencies
+# Dependencies
 
 The following Python packages are required for this project:
 
@@ -63,7 +73,7 @@ You can install these dependencies using the following command:
 pip install selenium wheel
 ```
 
-## Contribution Guidelines
+# Contribution Guidelines
 
 Contributions are welcome! If you'd like to contribute:
 
@@ -82,18 +92,13 @@ Contributions are welcome! If you'd like to contribute:
    ```
 5. Open a pull request.
 
-## License
+# License
 
-This project is licensed under the [LICENSE_NAME] license. See the `LICENSE` file for details.
+This project is licensed under the [AGPL Licence](https://choosealicense.com/licenses/agpl-3.0/). See the `LICENSE` file for details.
 
-## Support
+# Support
 
 If you encounter any issues or have questions about the project, feel free to reach out or open an issue in the GitHub
 repository.
-
-## Acknowledgments
-
-- [Name resource or library here]: For providing inspiration or foundational support.
-- [Contributor 1]: For [specific contributions].
 
 ---
