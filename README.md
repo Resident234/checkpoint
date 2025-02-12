@@ -16,7 +16,7 @@ This project is built using **Python 3.9.13** and makes use of the following ins
 - `selenium`: A framework for automating browsers.
 - `wheel`: For building and packaging Python projects.
 
-The project provides functionality for [describe the main purpose or feature of your project briefly].
+The project provides functionality for upload photo to Facebook.
 
 # Features
 
