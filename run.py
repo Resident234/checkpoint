@@ -4,8 +4,10 @@ from __future__ import annotations
 import argparse
 import os
 import pickle
+import re
 import sys
 import threading
+import time
 from datetime import datetime
 from os import listdir
 from os.path import isfile, isdir, join
@@ -36,6 +38,8 @@ size_to_album = 0
 size_all_files = 0
 cookie_filename = "fb.pkl"
 progress_filename = f"progress.pkl"
+profile_id = 0
+
 splited_size = 20
 renew_cookie = False
 root_folder = ''
@@ -217,26 +221,13 @@ def upload_to_album(driver, album_id: int, files: list[str]):
     else:
         clear_saved_progress()
 
-def create_album(driver, files: list[str]):
+
+def get_album_name() -> str:
     """
-    Creates an album in the media management interface by uploading files, specifying album name, and handling errors
-    during file uploads. This function ensures that the album is properly created with its unique identifier and descriptive
-    name while managing potential issues arising from problematic file uploads.
-
-    :param driver: WebDriver instance used to interact with the web page for creating the album.
-    :type driver: WebDriver
-    :param files: List of file paths to be uploaded as part of the album.
-    :type files: list[str]
-    :return: A tuple containing the album's unique identifier as an integer and its descriptive name as a string.
-    :rtype: tuple[int, str]
+    Ввести название альбома
+    :rtype: str
+    :return: 
     """
-    global index_file, index_to_album
-    driver.get(home + "media/set/create")
-
-    files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
-    set_files_to_field(files_input, files)
-
-    # Ввести название альбома
     album_name = folder.split("\\")
     album_name = list(filter(None, album_name))
 
@@ -244,6 +235,31 @@ def create_album(driver, files: list[str]):
     del album_name[0]
     album_name = '\\'.join(album_name)
     album_name = album_name.replace('\\\\', '\\')
+
+    return album_name
+
+
+def create_album(driver, album_name, files: list[str]):
+    """
+    Creates an album in the media management interface by uploading files, specifying album name, and handling errors
+    during file uploads. This function ensures that the album is properly created with its unique identifier and descriptive
+    name while managing potential issues arising from problematic file uploads.
+
+    :param album_name:
+    :param driver: WebDriver instance used to interact with the web page for creating the album.
+    :type driver: WebDriver
+    :param files: List of file paths to be uploaded as part of the album.
+    :type files: list[str]
+    :return: A tuple containing the album's unique identifier as an integer and its descriptive name as a string.
+    :rtype: tuple[int, str]
+    @todo каждая функция выводит в своем начале сообщение
+    """
+    global index_file, index_to_album
+    driver.get(home + "media/set/create")
+
+    files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
+    set_files_to_field(files_input, files)
+
     elem = driver.find_element(By.XPATH, "//input[@type='text']")
     elem.send_keys(album_name)
     print(f"Название альбома: {album_name}")
@@ -300,7 +316,7 @@ def create_album(driver, files: list[str]):
     album_id = query_def.lstrip('a.')
     save_progress(album_id, index_file, album_name)
 
-    return (int(album_id), album_name)
+    return int(album_id)
 
 def set_album_confidentiality(driver, album_id: int):
     """
@@ -473,6 +489,104 @@ def get_files_size(files: list, print: bool = True) -> int|str:
     return size(sum(files_sizes)) if print else sum(files_sizes)
 
 
+def get_profile_id(driver):
+    global profile_id
+
+    if profile_id and profile_id != 0:
+        return profile_id
+    else:
+        # Найти все ссылки на странице
+        links = driver.find_elements(By.TAG_NAME, 'a')
+
+        # Проверить ссылки на наличие "https://www.facebook.com/profile.php?id="
+        for link in links:
+            href = link.get_attribute('href')
+            if href and home + "profile.php?id=" in href:
+                parsed_url = parse.urlparse(href)
+                profile_id = parse.parse_qs(parsed_url.query).get("id", [None])[0]
+        return profile_id
+
+
+def find_album(driver, album_name):
+    """
+    https://www.facebook.com/profile.php?id=100007859116486&sk=photos_albums
+    @todo поиск альбома сделать опциональным
+    """
+    driver.get(f"{home}profile.php?id={get_profile_id(driver)}&sk=photos_albums")
+
+    scroll_to_end(driver)
+
+    # Далее ищем текст внутри span
+    try:
+        span_element = driver.find_element(By.XPATH, f"//span[text()='{album_name}']")
+    except NoSuchElementException:
+        return None
+
+    # Найти родителя ссылку и выдернуть id из выражения href="https://www.facebook.com/media/set/?set=a.3784912368447363&type=3"
+    parent_link = span_element.find_element(By.XPATH, "./ancestor::a")
+
+    # Извлечь id из href
+    href = parent_link.get_attribute("href")
+    match = re.search(r"set=a\.(\d+)", href)
+    if match:
+        media_id = match.group(1)
+        return media_id
+    else:
+        return None
+
+
+def scroll_to_end(driver, pause_time=3):
+    """
+    Функция для прокрутки страницы до конца и проверки, что прокрутка завершена.
+    """
+
+    # Найти элемент body для прокрутки страницы
+    body = driver.find_element(By.TAG_NAME, 'body')
+
+    #last_height = driver.execute_script("return document.body.scrollHeight")
+
+    while can_scroll_down(driver):
+        body.send_keys(Keys.SPACE)
+        sleep(pause_time)  # Небольшая задержка, чтобы страница успела прогрузиться
+
+def wait_for_page_load(driver, timeout=1):
+    """
+    Функция для ожидания окончания загрузки страницы
+    Ожидание, пока document.readyState станет 'complete'.
+    """
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        page_state = driver.execute_script("return document.readyState;")
+        if page_state == "complete":
+            print("Загрузка страницы завершена.")
+            return True
+        time.sleep(0.5)
+    print("Тайм-аут: страница не загрузилась полностью.")
+    return False
+
+
+def can_scroll_down(driver):
+    """ Функция для проверки возможности дальнейшей прокрутки вниз """
+    current_scroll = driver.execute_script("return window.scrollY + window.innerHeight;")
+    total_height = driver.execute_script("return document.body.scrollHeight;")
+    return current_scroll < total_height
+
+
+def wait_for_element(driver: WebDriver, by: str, timeout: int = 1) -> None:
+    """
+
+    :param driver: 
+    :param by: 
+    :param timeout: 
+    """
+    while True:
+        sleep(timeout)
+        try:
+            driver.find_element(By.XPATH, by)
+        except WebDriverException:
+            continue
+        break
+
 def main():
     global index_file, folder, size_all_files, count_all_files
     # todo проверка если куки истекли, но по факту авторизаци с ними произошал успешно
@@ -520,6 +634,8 @@ def main():
            and os.path.splitext(f)[1].lower() not in ['.psd', '.mpo', '.thm']
     }
 
+    driver.get(home)
+
     #files {id: (название, размер, полное название)}
 
     if files:
@@ -546,12 +662,24 @@ def main():
 
         if not progress:
             # Создание альбома и загрузка файлов
-            album_id, album_name = create_album(driver, files_splited[0])
+            album_name = get_album_name()
+            wait_for_element(driver, "//*[@aria-label=\"Поиск на Facebook\"]")
+            album_id = find_album(driver, album_name)
+            if not album_id:
+                print(f"Альбом {album_name} не найден")
+                album_id = create_album(driver, album_name, files_splited[0])
+                print(f"Альбом {album_name} добавлен, ID альбома {album_id}")
+            else:
+                print(f"Альбом {album_name} найден, ID альбома {album_id}")
+
             set_album_confidentiality(driver, album_id)
             del files_splited[0]
         else:
             album_id = progress[0]
             album_name = progress[2]
+
+        print(f"Название альбома: {album_name}")
+        print(f"ID альбома: {album_id}")
 
         while True:
             if not files_splited:
