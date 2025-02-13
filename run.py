@@ -668,18 +668,17 @@ def main():
             if not album_id:
                 print(f"Альбом {album_name} не найден")
                 album_id = create_album(driver, album_name, files_splited[0])
+                del files_splited[0]
                 print(f"Альбом {album_name} добавлен, ID альбома {album_id}")
             else:
                 print(f"Альбом {album_name} найден, ID альбома {album_id}")
 
             set_album_confidentiality(driver, album_id)
-            del files_splited[0]
         else:
             album_id = progress[0]
             album_name = progress[2]
 
-        print(f"Название альбома: {album_name}")
-        print(f"ID альбома: {album_id}")
+        print(f"Название альбома: {album_name}, ID альбома: {album_id}")
 
         while True:
             if not files_splited:
