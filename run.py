@@ -39,6 +39,7 @@ size_all_files = 0
 cookie_filename = "fb.pkl"
 progress_filename = f"progress.pkl"
 profile_id = 0
+album_name = ""
 
 splited_size = 20
 renew_cookie = False
@@ -69,6 +70,7 @@ def get_driver() -> WebDriver:
 
 #todo таймер ожадиния с обратным отсчетом
 #todo попап медиафайл успешно добавлен скрывать, возможно он мешает по кнопке перехода к альбому кликать
+#todo убрать настройку видимости альбома, который уже существует и был найден
 def login(driver, usr, pwd):
     # Enter user email
     elem = driver.find_element(By.NAME, "email")
@@ -214,12 +216,7 @@ def upload_to_album(driver, album_id: int, files: list[str]):
         print("Отправка формы")
         break
 
-    progress = restore_progress()
-    if progress:
-        x, x, album_name = progress
-        save_progress(album_id, index_file, album_name)
-    else:
-        clear_saved_progress()
+    save_progress(album_id, index_file, get_album_name())
 
 
 def get_album_name() -> str:
@@ -228,15 +225,20 @@ def get_album_name() -> str:
     :rtype: str
     :return: 
     """
-    album_name = folder.split("\\")
-    album_name = list(filter(None, album_name))
+    global album_name
 
-    del album_name[0]
-    del album_name[0]
-    album_name = '\\'.join(album_name)
-    album_name = album_name.replace('\\\\', '\\')
+    if album_name and album_name != "":
+        return album_name
+    else:
+        album_name = folder.split("\\")
+        album_name = list(filter(None, album_name))
 
-    return album_name
+        del album_name[0]
+        del album_name[0]
+        album_name = '\\'.join(album_name)
+        album_name = album_name.replace('\\\\', '\\')
+
+        return album_name
 
 
 def create_album(driver, album_name, files: list[str]):
@@ -336,6 +338,7 @@ def set_album_confidentiality(driver, album_id: int):
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
     submit_button.click()
     sleep(3)
+    # todo нужно проверять "Мы удалили вашу публикацию при открытии альбома на редактировании"
     # todo на первом запуске стал валиться
 
 
@@ -511,6 +514,7 @@ def find_album(driver, album_name):
     """
     https://www.facebook.com/profile.php?id=100007859116486&sk=photos_albums
     @todo поиск альбома сделать опциональным
+    @todo оптимизировать поиск, чтобы искал в процессе прокрутки
     """
     driver.get(f"{home}profile.php?id={get_profile_id(driver)}&sk=photos_albums")
 
