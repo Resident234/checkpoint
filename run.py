@@ -324,18 +324,18 @@ def set_album_confidentiality(driver, album_id: int):
     :param driver:
     :param album_id:
     """
+    print('Настройка видимости альбома')
     driver.get(f"{home}media/set/edit/a.{album_id}")
     button = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[contains(@aria-label,'Изменить конфиденциальность.')]")))
     button.click()
     WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Выберите аудиторию']")))
-    button = driver.find_element(By.XPATH, "//*[text()='Только я']")
+    button = driver.find_element(By.XPATH, "//div[@aria-label='Выберите аудиторию']//*[text()='Только я']")
     button.click()
-    button = driver.find_element(By.XPATH, "//*[text()='Готово']")
+    button = driver.find_element(By.XPATH, "//div[@aria-label='Выберите аудиторию']//*[text()='Готово']")
     button.click()
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
     submit_button.click()
     sleep(3)
-    print('Настройка видимости альбома')
     # todo на первом запуске стал валиться
 
 
