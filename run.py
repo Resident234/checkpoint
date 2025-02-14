@@ -71,6 +71,8 @@ def get_driver() -> WebDriver:
 #todo таймер ожадиния с обратным отсчетом
 #todo попап медиафайл успешно добавлен скрывать, возможно он мешает по кнопке перехода к альбому кликать
 #todo убрать настройку видимости альбома, который уже существует и был найден
+#todo иногда выбирается профиль левого человека, надо конерктизировать поиск
+#todo индикторы загрузки  из интервейса транслировать в консоль
 def login(driver, usr, pwd):
     # Enter user email
     elem = driver.find_element(By.NAME, "email")
@@ -297,10 +299,11 @@ def create_album(driver, album_name, files: list[str]):
             retry_count = 0
 
         try:
+            print('aria-disabled', submit_label.get_attribute('aria-disabled'))
             if submit_label.get_attribute('aria-disabled'):
                 continue
 
-            album_description = driver.find_element(By.XPATH, "//*[@aria-label='Описание (необязательно)']").find_element(By.XPATH, '//textarea')
+            album_description = driver.find_element(By.XPATH, "//*[text()='Описание (необязательно)']").find_element(By.XPATH, "..").find_element(By.XPATH, '//textarea')
             album_description.send_keys(album_name)
 
             submit_button.click()
