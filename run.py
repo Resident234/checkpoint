@@ -26,6 +26,10 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from PIL import Image
+import pytesseract
+from io import BytesIO
+import cv2
 
 import config
 
@@ -72,7 +76,8 @@ def get_driver() -> WebDriver:
 #todo попап медиафайл успешно добавлен скрывать, возможно он мешает по кнопке перехода к альбому кликать
 #todo убрать настройку видимости альбома, который уже существует и был найден
 #todo иногда выбирается профиль левого человека, надо конерктизировать поиск
-#todo индикторы загрузки  из интервейса транслировать в консоль
+#todo индикаторы загрузки  из интерфейса транслировать в консоль
+#todo алгоритм троттлинга
 def login(driver, usr, pwd):
     # Enter user email
     elem = driver.find_element(By.NAME, "email")
@@ -83,19 +88,60 @@ def login(driver, usr, pwd):
     # Login
     elem.send_keys(Keys.RETURN)
 
-def check_captcha(driver):
+def solve_captcha(driver):
     """
     Распознавать страницу запроса капчу и ждать ввода
     :param driver:
     """
+    pytesseract.pytesseract.tesseract_cmd = 'F:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+    sleep(3)
+    captcha_element = driver.find_element(By.TAG_NAME, 'img')
+    captcha_image = captcha_element.screenshot_as_png #todo дождаться пока прогрузится
+    with open("captcha.png", "wb") as f:
+        f.write(captcha_image)
+
+    #image = Image.open(BytesIO(captcha_image))
+
+    image = cv2.imread("captcha.png")
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (3, 3), 0)
+    thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+
+    # Morph open to remove noise and invert image
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+    invert = 255 - opening
+    image = invert
+
+    captcha_text = pytesseract.image_to_string(image, lang="eng", config='--oem 3 --psm 6')#, config='--psm 8 --oem 3'
+    print('captcha_text', captcha_text)
 
     try:#todo оптимизировать это ожидание
-        WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
+
+        # пока не завершился ввод ответа капчи, ждем
         WebDriverWait(driver, 1000).until(lambda x: not driver.current_url.find('/two_step_verification/authentication/') != -1)
     except WebDriverException:
         pass
 
     sleep(2)
+
+#todo
+def check_page(driver: WebDriver, page: str) -> str | bool:
+    match page:
+        case 'captcha': # страница запроса капчи
+            try:
+                WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
+            except WebDriverException:
+                return False
+            return True
+        case 400:
+            return "Bad Request"
+        case 404:
+            return "Not Found"
+        case 500:
+            return "Server Error"
+        case _:
+            return "Unknown Status"
 
 def two_step_verification_wait(driver):
     """
@@ -268,6 +314,8 @@ def create_album(driver, album_name, files: list[str]):
     elem.send_keys(album_name)
     print(f"Название альбома: {album_name}")
 
+    # @todo страницу "Недавние входы" обрабатывать
+    # @todo релоад стрницы, если есть подозрение что страница зависла или не прогрузилась
     # Дождаться загрузки файлов и нажать кнопку создания альбома
     submit_button = driver.find_element(By.XPATH, "//*[text()='Отправить']")
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='Отправить']")
@@ -299,7 +347,6 @@ def create_album(driver, album_name, files: list[str]):
             retry_count = 0
 
         try:
-            print('aria-disabled', submit_label.get_attribute('aria-disabled'))
             if submit_label.get_attribute('aria-disabled'):
                 continue
 
@@ -352,6 +399,9 @@ def parse_cli_args():
     run.py --folder "Стар. фото из Протасово -родня" --splitedsize=10 --rootfolder "D:\\PHOTO"
     run.py --folder "Фото 2009 г" --splitedsize=10 --rootfolder "D:\\PHOTO" --headless
     run.py --folder "Хабаровск" --splitedsize=10 --rootfolder D:\\PHOTO --headless --recursive
+    run.py --folder "Домашние" --splitedsize=10 --rootfolder D:\\PHOTO --checkduplicates
+    run.py --folder "аэропорт Симферополь Москва" --splitedsize=10 --rootfolder D:\\PHOTO --headless
+
     """
     global folder, renew_cookie, splited_size, root_folder, is_headless, check_duplicates, recursive
 
@@ -616,7 +666,8 @@ def main():
 
     if renew_cookie or not add_cookies(driver, cookie_filename):
         login(driver, usr, pwd)
-        check_captcha(driver)
+        if check_page(driver, 'captcha'):
+            solve_captcha(driver)
         two_step_verification_wait(driver)
         add_trusted_device(driver)
         save_cookies(driver, cookie_filename)
