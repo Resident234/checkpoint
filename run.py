@@ -119,14 +119,12 @@ def solve_captcha(driver):
     captcha_text = pytesseract.image_to_string(image, lang="eng", config='--oem 3 --psm 6')#, config='--psm 8 --oem 3'
     print('captcha_text', captcha_text)
 
-    try:#todo оптимизировать это ожидание
-
-        # пока не завершился ввод ответа капчи, ждем
-        WebDriverWait(driver, 1000).until(lambda x: not driver.current_url.find('/two_step_verification/authentication/') != -1)
+    try:
+        WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
     except WebDriverException:
-        pass
+        driver.close()
+        sys.exit('Капча не решена')
 
-    sleep(2)
 
 #todo
 def check_page(driver: WebDriver, page: str) -> str | bool:
@@ -152,10 +150,22 @@ def check_page(driver: WebDriver, page: str) -> str | bool:
                 return False
             return True
 
-        case 500:
-            return "Server Error"
+        case 'two_step_verification':
+            try:
+                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
+            except WebDriverException:
+                return False
+            return True
+
+        case 'add_trusted_device':
+            try:
+                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
+            except WebDriverException:
+                return False
+            return True
+
         case _:
-            return "Unknown Status"
+            return False
 
 def two_step_verification_wait(driver):
     """
@@ -163,8 +173,7 @@ def two_step_verification_wait(driver):
     :param driver:
     """
     try:
-        WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
-        WebDriverWait(driver, 1000).until(lambda x: not driver.current_url.find('/two_step_verification/two_factor/') != -1)
+        WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
     except WebDriverException:
         pass
 
@@ -173,14 +182,11 @@ def add_trusted_device(driver):
     Если появится кпонка "Сделать устройство доверенным"
     :param driver:
     """
-
     try:
-        button = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Сделать это устройство доверенным']")))
+        button = WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Сделать это устройство доверенным']")))
         button.click()
     except NoSuchElementException:
         pass
-
-    sleep(5)
 
 
 def save_cookies(driver, filename):
@@ -690,8 +696,10 @@ def main():
             login(driver, usr, pwd)
         if check_page(driver, 'captcha'):
             solve_captcha(driver)
-        two_step_verification_wait(driver)
-        add_trusted_device(driver)
+        if check_page(driver, 'two_step_verification'):
+            two_step_verification_wait(driver)
+        if check_page(driver, 'add_trusted_device'):
+            add_trusted_device(driver)
         save_cookies(driver, cookie_filename)
 
     driver.refresh()
