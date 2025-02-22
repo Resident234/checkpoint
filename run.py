@@ -88,6 +88,9 @@ def login(driver, usr, pwd):
     # Login
     elem.send_keys(Keys.RETURN)
 
+#todo если открытых диалоговых окон 0, то повторный поиск диалоговых окон
+#todo мы удалили публикацию распознавать на всех страницах
+
 def solve_captcha(driver):
     """
     Распознавать страницу запроса капчу и ждать ввода
@@ -130,14 +133,25 @@ def check_page(driver: WebDriver, page: str) -> str | bool:
     match page:
         case 'captcha': # страница запроса капчи
             try:
-                WebDriverWait(driver, 500).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
+                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
             except WebDriverException:
                 return False
             return True
-        case 400:
-            return "Bad Request"
-        case 404:
-            return "Not Found"
+
+        case 'index':
+            try:
+                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[@aria-label='Ваш профиль']")))
+            except WebDriverException:
+                return False
+            return True
+
+        case 'login':
+            try:
+                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Недавние входы']"))) # or
+            except WebDriverException:
+                return False
+            return True
+
         case 500:
             return "Server Error"
         case _:
@@ -664,13 +678,23 @@ def main():
     # Go to facebook.com
     driver.get(home)
 
-    if renew_cookie or not add_cookies(driver, cookie_filename):
-        login(driver, usr, pwd)
+    is_authorized = False
+
+    if add_cookies(driver, cookie_filename):
+        driver.get(home)
+        driver.refresh()
+        is_authorized = check_page(driver, 'index')
+
+    if renew_cookie or not is_authorized:
+        if check_page(driver, 'login'):
+            login(driver, usr, pwd)
         if check_page(driver, 'captcha'):
             solve_captcha(driver)
         two_step_verification_wait(driver)
         add_trusted_device(driver)
         save_cookies(driver, cookie_filename)
+
+    driver.refresh()
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
     # Попап блокировки распозначать на этапе создания нового альбома
