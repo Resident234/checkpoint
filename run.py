@@ -175,7 +175,8 @@ def two_step_verification_wait(driver):
     try:
         WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
     except WebDriverException:
-        pass
+        driver.close()
+        sys.exit('Код из уведомления не был введен')
 
 def add_trusted_device(driver):
     """
