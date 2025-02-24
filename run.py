@@ -97,13 +97,22 @@ def solve_captcha(driver):
     Распознавать страницу запроса капчу и ждать ввода
     :param driver:
     """
-
     audio_src = driver.find_element(By.XPATH, "//*[text()='воспроизвести аудио']").get_attribute('href')
-
     driver.execute_script("window.open('');")
     # Switch to the new window
     driver.switch_to.window(driver.window_handles[1])
     driver.get(audio_src)
+
+    sleep(10) #todo дождаться пока загрузится
+
+    audio_element = driver.find_element(By.CSS_SELECTOR, "audio")
+    audio_url = audio_element.get_attribute('src')
+    response = requests.get(audio_url)
+    if response.status_code == 200:
+        with open('audio.mp3', 'wb') as f: # @todo имена и расположение файлов а так же их очистка
+            f.write(response.content)
+
+    sleep(300)
 
     # Audio configuration
     FORMAT = pyaudio.paInt16
