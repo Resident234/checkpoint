@@ -17,19 +17,20 @@ from typing import Any
 from urllib import parse
 import hashlib
 import filetype
+import requests
 from hurry.filesize import size
 from selenium import webdriver
-from selenium.common import NoSuchElementException, WebDriverException, TimeoutException
+from selenium.common import NoSuchElementException, WebDriverException, TimeoutException, InvalidCookieDomainException
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from PIL import Image
-import pytesseract
-from io import BytesIO
-import cv2
+import pyaudio
+import webrtcvad
+import wave
+
 
 import config
 
@@ -96,28 +97,61 @@ def solve_captcha(driver):
     Распознавать страницу запроса капчу и ждать ввода
     :param driver:
     """
-    pytesseract.pytesseract.tesseract_cmd = 'F:\\Program Files\\Tesseract-OCR\\tesseract.exe'
-    sleep(3)
-    captcha_element = driver.find_element(By.TAG_NAME, 'img')
-    captcha_image = captcha_element.screenshot_as_png #todo дождаться пока прогрузится
-    with open("captcha.png", "wb") as f:
-        f.write(captcha_image)
 
-    #image = Image.open(BytesIO(captcha_image))
+    audio_src = driver.find_element(By.XPATH, "//*[text()='воспроизвести аудио']").get_attribute('href')
 
-    image = cv2.imread("captcha.png")
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (3, 3), 0)
-    thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    driver.execute_script("window.open('');")
+    # Switch to the new window
+    driver.switch_to.window(driver.window_handles[1])
+    driver.get(audio_src)
 
-    # Morph open to remove noise and invert image
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
-    invert = 255 - opening
-    image = invert
+    # Audio configuration
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 1
+    RATE = 16000
+    CHUNK = 1024
 
-    captcha_text = pytesseract.image_to_string(image, lang="eng", config='--oem 3 --psm 6')#, config='--psm 8 --oem 3'
-    print('captcha_text', captcha_text)
+    # Initialize PyAudio
+    audio = pyaudio.PyAudio()
+
+    # Open stream
+    stream = audio.open(format=FORMAT,
+                        channels=CHANNELS,
+                        rate=RATE,
+                        input=True,
+                        frames_per_buffer=CHUNK)
+
+    # Initialize VAD
+    vad = webrtcvad.Vad()
+    vad.set_mode(1)  # 0: Aggressive filtering, 3: Less aggressive
+
+    def record_audio():
+        frames = []
+
+        print("Listening for speech...")
+
+        frame = stream.read(CHUNK)
+        print(frame)
+        frames.append(frame)
+
+        # Stop and close the stream
+        stream.stop_stream()
+        stream.close()
+        audio.terminate()
+
+        return frames
+
+    def save_audio(frames, filename="output.wav"):
+        wf = wave.open(filename, 'wb')
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(audio.get_sample_size(FORMAT))
+        wf.setframerate(RATE)
+        wf.writeframes(b''.join(frames))
+        wf.close()
+
+    # Example usage
+    frames = record_audio()
+    save_audio(frames)
 
     try:
         WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
@@ -202,13 +236,17 @@ def add_cookies(driver, filename):
         return False
 
     if cookies:
-        now_timestamp = datetime.timestamp(datetime.now())
-        #[{'domain': '.facebook.com', 'expiry': 1735714471, 'httpOnly': True, 'name': 'fr', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '05ph6f0hw4tuSzo9F.AWU-O3D10vsFCE9voUFq_NNXPMQ.Bm_j9b..AAA.0.0.Bm_j-m.AWU8cqDJJyc'}, {'domain': '.facebook.com', 'expiry': 1759474424, 'httpOnly': True, 'name': 'xs', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '35%3A0UNfy0QwpAuLmw%3A2%3A1727938422%3A-1%3A14476'}, {'domain': '.facebook.com', 'expiry': 1759474424, 'httpOnly': False, 'name': 'c_user', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '100007859116486'}, {'domain': '.facebook.com', 'expiry': 1728543205, 'httpOnly': False, 'name': 'locale', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'ru_RU'}, {'domain': '.facebook.com', 'httpOnly': False, 'name': 'presence', 'path': '/', 'sameSite': 'Lax', 'secure': True, 'value': 'C%7B%22t3%22%3A%5B%5D%2C%22utc3%22%3A1727938473890%2C%22v%22%3A1%7D'}, {'domain': '.facebook.com', 'expiry': 1728543273, 'httpOnly': False, 'name': 'wd', 'path': '/', 'sameSite': 'Lax', 'secure': True, 'value': '929x873'}, {'domain': '.facebook.com', 'expiry': 1762498397, 'httpOnly': True, 'name': 'datr', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'Wz_-ZubvX8PhEuJo2hFYXuKA'}, {'domain': '.facebook.com', 'expiry': 1762498424, 'httpOnly': True, 'name': 'sb', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'Wz_-ZluV4_krp6As8GZW3_l_'}]
-        for cookie in cookies:
-            if cookie.get('expiry') and cookie['expiry'] < now_timestamp:
-                print("cookies expired")
-                return False
-            driver.add_cookie(cookie)
+        try:
+            now_timestamp = datetime.timestamp(datetime.now())
+            #[{'domain': '.facebook.com', 'expiry': 1735714471, 'httpOnly': True, 'name': 'fr', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '05ph6f0hw4tuSzo9F.AWU-O3D10vsFCE9voUFq_NNXPMQ.Bm_j9b..AAA.0.0.Bm_j-m.AWU8cqDJJyc'}, {'domain': '.facebook.com', 'expiry': 1759474424, 'httpOnly': True, 'name': 'xs', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '35%3A0UNfy0QwpAuLmw%3A2%3A1727938422%3A-1%3A14476'}, {'domain': '.facebook.com', 'expiry': 1759474424, 'httpOnly': False, 'name': 'c_user', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': '100007859116486'}, {'domain': '.facebook.com', 'expiry': 1728543205, 'httpOnly': False, 'name': 'locale', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'ru_RU'}, {'domain': '.facebook.com', 'httpOnly': False, 'name': 'presence', 'path': '/', 'sameSite': 'Lax', 'secure': True, 'value': 'C%7B%22t3%22%3A%5B%5D%2C%22utc3%22%3A1727938473890%2C%22v%22%3A1%7D'}, {'domain': '.facebook.com', 'expiry': 1728543273, 'httpOnly': False, 'name': 'wd', 'path': '/', 'sameSite': 'Lax', 'secure': True, 'value': '929x873'}, {'domain': '.facebook.com', 'expiry': 1762498397, 'httpOnly': True, 'name': 'datr', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'Wz_-ZubvX8PhEuJo2hFYXuKA'}, {'domain': '.facebook.com', 'expiry': 1762498424, 'httpOnly': True, 'name': 'sb', 'path': '/', 'sameSite': 'None', 'secure': True, 'value': 'Wz_-ZluV4_krp6As8GZW3_l_'}]
+            for cookie in cookies:
+                if cookie.get('expiry') and cookie['expiry'] < now_timestamp:
+                    print("cookies expired")
+                    return False
+                driver.add_cookie(cookie)
+        except InvalidCookieDomainException:
+            return False
+
         print("cookies added successfully")
         return True
     else:
@@ -686,14 +724,19 @@ def main():
     driver.get(home)
 
     is_authorized = False
-
+    # todo после сокрытия попапа "Что произошло" паузу не делать
+ 
     if add_cookies(driver, cookie_filename):
         driver.get(home)
         driver.refresh()
         is_authorized = check_page(driver, 'index')
 
+    print(is_authorized)
     if renew_cookie or not is_authorized:
         if check_page(driver, 'login'):
+            login(driver, usr, pwd)
+        else:
+            driver.get(home)
             login(driver, usr, pwd)
         if check_page(driver, 'captcha'):
             solve_captcha(driver)
