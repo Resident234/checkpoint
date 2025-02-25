@@ -30,6 +30,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 import pyaudio
 import webrtcvad
 import wave
+import speech_recognition as sr
+from pydub import AudioSegment
 
 
 import config
@@ -109,58 +111,33 @@ def solve_captcha(driver):
     audio_url = audio_element.get_attribute('src')
     response = requests.get(audio_url)
     if response.status_code == 200:
-        with open('audio.mp3', 'wb') as f: # @todo имена и расположение файлов а так же их очистка
+        with open(r"C:\Users\Professional\audio.mp3", 'wb') as f: # @todo имена и расположение файлов а так же их очистка
             f.write(response.content)
 
+    driver.switch_to.window(driver.window_handles[0])
+
+    # convert mp3 file to wav
+    src = r"C:\Users\Professional\audio.mp3"
+    sound = AudioSegment.from_mp3(src)
+    sound.export(r"C:\Users\Professional\audio.wav", format="wav")
+
+    file_audio = sr.AudioFile(r"C:\Users\Professional\audio.wav")#todo путь поправить
+
+    # use the audio file as the audio source
+    r = sr.Recognizer()
+    with file_audio as source:
+        audio_text = r.record(source)
+
+    captcha_text = r.recognize_google(audio_text)
+    print("Текст капчи:" + captcha_text)
+    input = driver.find_element(By.XPATH, "//input[@type='text']")
+    input.send_keys(captcha_text)
+    submit_button = driver.find_element(By.XPATH, "//*[text()='Продолжить']")
+    submit_button.click()
+
+    #todo инструкцию по развертыванию написать и первый ответ тоже https://stackoverflow.com/questions/55669182/how-to-fix-filenotfounderror-winerror-2-the-system-cannot-find-the-file-speci
+
     sleep(300)
-
-    # Audio configuration
-    FORMAT = pyaudio.paInt16
-    CHANNELS = 1
-    RATE = 16000
-    CHUNK = 1024
-
-    # Initialize PyAudio
-    audio = pyaudio.PyAudio()
-
-    # Open stream
-    stream = audio.open(format=FORMAT,
-                        channels=CHANNELS,
-                        rate=RATE,
-                        input=True,
-                        frames_per_buffer=CHUNK)
-
-    # Initialize VAD
-    vad = webrtcvad.Vad()
-    vad.set_mode(1)  # 0: Aggressive filtering, 3: Less aggressive
-
-    def record_audio():
-        frames = []
-
-        print("Listening for speech...")
-
-        frame = stream.read(CHUNK)
-        print(frame)
-        frames.append(frame)
-
-        # Stop and close the stream
-        stream.stop_stream()
-        stream.close()
-        audio.terminate()
-
-        return frames
-
-    def save_audio(frames, filename="output.wav"):
-        wf = wave.open(filename, 'wb')
-        wf.setnchannels(CHANNELS)
-        wf.setsampwidth(audio.get_sample_size(FORMAT))
-        wf.setframerate(RATE)
-        wf.writeframes(b''.join(frames))
-        wf.close()
-
-    # Example usage
-    frames = record_audio()
-    save_audio(frames)
 
     try:
         WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
