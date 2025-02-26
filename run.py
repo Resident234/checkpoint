@@ -172,7 +172,7 @@ def check_page(driver: WebDriver, page: str) -> str | bool:
 
         case 'two_step_verification':
             try:
-                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
+                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
             except WebDriverException:
                 return False
             return True
@@ -193,7 +193,7 @@ def two_step_verification_wait(driver):
     :param driver:
     """
     try:
-        WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
+        WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
     except WebDriverException:
         driver.close()
         sys.exit('Код из уведомления не был введен')
@@ -701,6 +701,7 @@ def main():
         print("Error: Missing Facebook credentials.")
         sys.exit(1)
     #cookie_filename = usr + ' ' + cookie_filename todo в название файла логин добавить
+    #todo Эта публикация нарушает наши Нормы сообщества - это сообщение обрабатывать
 
     parse_cli_args()
 
@@ -717,7 +718,6 @@ def main():
         driver.refresh()
         is_authorized = check_page(driver, 'index')
 
-    print(is_authorized)
     if renew_cookie or not is_authorized:
         if check_page(driver, 'login'):
             login(driver, usr, pwd)
