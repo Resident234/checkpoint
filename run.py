@@ -32,6 +32,7 @@ import webrtcvad
 import wave
 import speech_recognition as sr
 from pydub import AudioSegment
+from threading import Thread
 
 
 import config
@@ -136,7 +137,8 @@ def solve_captcha(driver):
     submit_button.click()
 
     #todo инструкцию по развертыванию написать и первый ответ тоже https://stackoverflow.com/questions/55669182/how-to-fix-filenotfounderror-winerror-2-the-system-cannot-find-the-file-speci
-
+    #todo мониторить сообщение "Не удалось добавить медиафайлы в этот альбом". Релоадить страницу и начинать загрузку фото заново. Засекать проблемный файл и выкидывать его из списка
+    #todo в консоль записывать имена файлов, которые сохраняются
     sleep(300)
 
     try:
@@ -192,6 +194,11 @@ def two_step_verification_wait(driver):
     бесконечное ожидание, пока я вход на телефоне не подтвержу
     :param driver:
     """
+    title = driver.find_element(By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")
+    print(f'{title.text} и введите код')
+    inp = Inp().get()
+    if inp:
+        print(f'Ввод принят: {inp}')
     try:
         WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
     except WebDriverException:
@@ -254,7 +261,8 @@ def restore_progress() -> bool | tuple[Any]:
 
     return *progress,
 
-
+# todo подумать как отрефакторить эти циклы и оптимизировать
+# todo все всплывающие уведомления транслировать в консоль
 def upload_to_album(driver, album_id: int, files: list[str]):
     # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
     global index_file, index_to_album, size_to_album
@@ -263,36 +271,56 @@ def upload_to_album(driver, album_id: int, files: list[str]):
 
     driver.get(f"{home}media/set/edit/a.{album_id}")
 
-    # Загрузка файлов
-    files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
-    set_files_to_field(files_input, files)
-
-    # Кнопка "Добавить в альбом"
-    sleep(5)
     while True:
-        check_popups(driver)
 
-        add_dialogs = driver.find_elements(By.XPATH, "//*[text()='Добавить в альбом']")  # "//*[@aria-label='Добавление в альбом' and @role='dialog']"
-        add_dialogs = add_dialogs[::-1]
-        print(f"Открытых диалоговых окон: {len(add_dialogs)}")
+        # Загрузка файлов
+        files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
+        set_files_to_field(files_input, files)
 
-        if not add_dialogs:
-            break
+        # Кнопка "Добавить в альбом"
+        sleep(5)
+        prev_dialogs_count = 0
+        problems_count = 0
+        while True:
+            check_popups(driver)
 
-        for index, button in enumerate(add_dialogs):
-            try:
-                button.click()
-            except WebDriverException:
-                continue
+            add_dialogs = driver.find_elements(By.XPATH, "//*[text()='Добавить в альбом']")  # "//*[@aria-label='Добавление в альбом' and @role='dialog']"
+            add_dialogs = add_dialogs[::-1]
+            dialogs_count = len(add_dialogs)
+            print(f"Открытых диалоговых окон: {dialogs_count}")
+            print(prev_dialogs_count, dialogs_count)
 
-            print(f"Сохранение фото")
-            del add_dialogs[index]
+            if problems_count >= 10:
+                print(f"Ошибка добавления {problems_count}. Обновление страницы")
+                driver.refresh()
+                break
 
-            # После клика дождаться пока опубликуется
-            wait = WebDriverWait(driver, 50)
-            wait.until(lambda x: not driver.find_elements(By.XPATH, "//*[text()='Публикация']"))
+            if prev_dialogs_count != 0 and prev_dialogs_count == dialogs_count:
+                problems_count += 1
+                print(f"Ошибок добавления {problems_count}")
+               
+            prev_dialogs_count = dialogs_count
 
-            break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
+            if not add_dialogs:
+                break
+
+            for index, button in enumerate(add_dialogs):
+                try:
+                    button.click()
+                except WebDriverException:
+                    continue
+
+                print(f"Сохранение фото")
+                del add_dialogs[index]
+
+                # После клика дождаться пока опубликуется
+                wait = WebDriverWait(driver, 50)
+                wait.until(lambda x: not driver.find_elements(By.XPATH, "//*[text()='Публикация']"))
+
+                break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
+        
+        if add_dialogs: 
+            continue
 
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='К альбому' or @aria-label='Сохранить']")
@@ -702,6 +730,7 @@ def main():
         sys.exit(1)
     #cookie_filename = usr + ' ' + cookie_filename todo в название файла логин добавить
     #todo Эта публикация нарушает наши Нормы сообщества - это сообщение обрабатывать
+    #todo Не удалось опубликовать фото - обрабатывать попап-ошибку - это такой же попап как и Вы временно заблокированы
 
     parse_cli_args()
 
@@ -822,6 +851,20 @@ def main():
 
     driver.close()# todo в wait паузы увеличить
 
+class Inp:
+    inp = None
+
+    def __init__(self):
+        t = Thread(target=self.get_input)
+        t.daemon = True
+        t.start()
+        t.join(timeout=500)
+
+    def get_input(self):
+        self.inp = input()
+
+    def get(self):
+        return self.inp
 
 if __name__ == '__main__':
     main()
