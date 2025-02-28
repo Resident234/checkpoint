@@ -254,6 +254,7 @@ def add_cookies(driver, filename):
         return False
 
 def save_progress(album_id, file_number, album_name):
+    print(f'save_progress') #todo имя функции выводить в консоль автоматически
     pickle.dump([album_id, file_number, album_name], open(progress_filename, 'wb'))
 
 def clear_saved_progress():
@@ -314,8 +315,11 @@ def upload_to_album(driver, album_id: int, files: list[str]):
 
             for index, button in enumerate(add_dialogs):
                 try:
+                    button_container = button.find_element(By.XPATH, ".//ancestor::div[@aria-label=\"Добавить в альбом\"]")
+                    WebDriverWait(driver, 500).until(lambda x: button_container.get_attribute("aria-disabled") != "true" or button_container.get_attribute("aria-disabled") is None)
                     button.click()
-                except WebDriverException:
+                except WebDriverException as e:
+                    print(e)
                     continue
 
                 print(f"Сохранение фото")
@@ -327,7 +331,13 @@ def upload_to_album(driver, album_id: int, files: list[str]):
 
                 break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
         
-        if add_dialogs: 
+        if add_dialogs:
+            #сброс счетчиков для текущего блока файлов
+            for file in files:
+                index_file -= 1
+                index_to_album -= 1
+                size_to_album -= file[1][1]
+
             continue
 
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
