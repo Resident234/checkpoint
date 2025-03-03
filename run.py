@@ -33,6 +33,7 @@ import wave
 import speech_recognition as sr
 from pydub import AudioSegment
 from threading import Thread
+from tqdm import tqdm
 
 
 import config
@@ -76,7 +77,6 @@ def get_driver() -> WebDriver:
     return driver
 
 
-#todo таймер ожадиния с обратным отсчетом
 #todo попап медиафайл успешно добавлен скрывать, возможно он мешает по кнопке перехода к альбому кликать
 #todo убрать настройку видимости альбома, который уже существует и был найден
 #todo иногда выбирается профиль левого человека, надо конерктизировать поиск
@@ -277,6 +277,15 @@ def restore_progress() -> bool | tuple[Any]:
 # todo вести статистику ошибок сохранения конкретных файлов и перезапускать сохранение, исключив проблемные файлы из списка
 # todo алгоритм троттлинга
 
+def sleep_throttling(timeout):
+    for i in range(timeout, 0, -1):
+        sys.stdout.write(str(i) + ' ')
+        sys.stdout.flush()
+        minutes, seconds = divmod(i, 60)
+        print_progress_bar(i, timeout, prefix='Progress:', suffix=f"Осталось{' ' + str(minutes) + ' минут' if minutes > 0 else ''} и {seconds} секунд", length=50)
+        time.sleep(1)
+
+
 def upload_to_album(driver, album_id: int, files: list[str]):
     # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
     global index_file, index_to_album, size_to_album
@@ -310,7 +319,7 @@ def upload_to_album(driver, album_id: int, files: list[str]):
 
             if prev_dialogs_count != 0 and prev_dialogs_count == dialogs_count:
                 problems_count += 1
-                sleep(10 * 60)
+                sleep_throttling(10 * 60)
                 print(f"Ошибок добавления: {problems_count}")
                
             prev_dialogs_count = dialogs_count
@@ -594,7 +603,7 @@ def check_popups(driver):
         return need_return
 
     print(f"Обнаружен попап {popup_text}")
-    sleep(10 * 60)
+    sleep_throttling(10 * 60)
     return True
 
 def search_folder_recursive(folder: str, root_path: str = '.') -> str|None:
