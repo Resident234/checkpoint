@@ -270,8 +270,13 @@ def restore_progress() -> bool | tuple[Any]:
 
     return *progress,
 
+# todo распознавать сообщение об отсуствии интернета и ставить процесс на паузу
 # todo подумать как отрефакторить эти циклы и оптимизировать
 # todo все всплывающие уведомления транслировать в консоль
+# todo доработать ошибку таймаута в случае обрыва соединения
+# todo вести статистику ошибок сохранения конкретных файлов и перезапускать сохранение, исключив проблемные файлы из списка
+# todo алгоритм троттлинга
+
 def upload_to_album(driver, album_id: int, files: list[str]):
     # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
     global index_file, index_to_album, size_to_album
@@ -297,16 +302,16 @@ def upload_to_album(driver, album_id: int, files: list[str]):
             add_dialogs = add_dialogs[::-1]
             dialogs_count = len(add_dialogs)
             print(f"Открытых диалоговых окон: {dialogs_count}")
-            print(prev_dialogs_count, dialogs_count)
-
-            if problems_count >= 10:
+            
+            if problems_count >= 100:
                 print(f"Ошибка добавления {problems_count}. Обновление страницы")
                 driver.refresh()
                 break
 
             if prev_dialogs_count != 0 and prev_dialogs_count == dialogs_count:
                 problems_count += 1
-                print(f"Ошибок добавления {problems_count}")
+                sleep(10 * 60)
+                print(f"Ошибок добавления: {problems_count}")
                
             prev_dialogs_count = dialogs_count
 
@@ -318,8 +323,7 @@ def upload_to_album(driver, album_id: int, files: list[str]):
                     button_container = button.find_element(By.XPATH, ".//ancestor::div[@aria-label=\"Добавить в альбом\"]")
                     WebDriverWait(driver, 500).until(lambda x: button_container.get_attribute("aria-disabled") != "true" or button_container.get_attribute("aria-disabled") is None)
                     button.click()
-                except WebDriverException as e:
-                    print(e)
+                except WebDriverException:
                     continue
 
                 print(f"Сохранение фото")
@@ -330,7 +334,7 @@ def upload_to_album(driver, album_id: int, files: list[str]):
                 wait.until(lambda x: not driver.find_elements(By.XPATH, "//*[text()='Публикация']"))
 
                 break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
-        
+
         if add_dialogs:
             #сброс счетчиков для текущего блока файлов
             for file in files:
@@ -340,8 +344,13 @@ def upload_to_album(driver, album_id: int, files: list[str]):
 
             continue
 
+        print("Сохранение списка фото успешно, идем за новым списком")
+        break
+
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='К альбому' or @aria-label='Сохранить']")
+
+    #todo найти проект образец и перестроить архитектуру
 
     while True:
         sleep(1)
@@ -492,6 +501,7 @@ def parse_cli_args():
     run.py --folder "Хабаровск" --splitedsize=10 --rootfolder D:\\PHOTO --headless --recursive
     run.py --folder "Домашние" --splitedsize=10 --rootfolder D:\\PHOTO --checkduplicates
     run.py --folder "аэропорт Симферополь Москва" --splitedsize=10 --rootfolder D:\\PHOTO --headless
+    run.py --folder "Узбекистан" --splitedsize=3 --rootfolder G:\\PHOTO
 
     """
     global folder, renew_cookie, splited_size, root_folder, is_headless, check_duplicates, recursive
