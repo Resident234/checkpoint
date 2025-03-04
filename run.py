@@ -282,7 +282,7 @@ def sleep_throttling(timeout):
         sys.stdout.write(str(i) + ' ')
         sys.stdout.flush()
         minutes, seconds = divmod(i, 60)
-        print_progress_bar(i, timeout, prefix='Progress:', suffix=f"Осталось{' ' + str(minutes) + ' минут' if minutes > 0 else ''} и {seconds} секунд", length=50)
+        print_progress_bar(i, timeout, prefix='sleep:', suffix=f"Осталось{' ' + str(minutes) + ' минут' if minutes > 0 else ''} и {seconds} секунд", length=50)
         time.sleep(1)
 
 
