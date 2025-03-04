@@ -112,8 +112,7 @@ def solve_captcha(driver):
     #todo инструкцию по развертыванию написать и первый ответ тоже https://stackoverflow.com/questions/55669182/how-to-fix-filenotfounderror-winerror-2-the-system-cannot-find-the-file-speci
     #todo мониторить сообщение "Не удалось добавить медиафайлы в этот альбом". Релоадить страницу и начинать загрузку фото заново. Засекать проблемный файл и выкидывать его из списка
     #todo в консоль записывать имена файлов, которые сохраняются
-    sleep(300)
-
+    
     try:
         WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
     except WebDriverException:
@@ -203,10 +202,14 @@ def two_step_verification_wait(driver):
     :param driver:
     """
     title = driver.find_element(By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")
-    print(f'{title.text} и введите код')
-    inp = Inp().get()
+    inp = Inp(f'{title.text} и введите код: ').get()
     if inp:
         print(f'Ввод принят: {inp}')
+        elem = driver.find_element(By.XPATH, "//input[@type='text']")
+        elem.send_keys(inp)
+        sleep(1)
+        submit_button = driver.find_element(By.XPATH, "//*[text()='Продолжить']")
+        submit_button.click()
     try:
         WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
     except WebDriverException:
@@ -275,15 +278,31 @@ def restore_progress() -> bool | tuple[Any]:
 # todo все всплывающие уведомления транслировать в консоль
 # todo доработать ошибку таймаута в случае обрыва соединения
 # todo вести статистику ошибок сохранения конкретных файлов и перезапускать сохранение, исключив проблемные файлы из списка
-# todo алгоритм троттлинга
 
-def sleep_throttling(timeout):
-    for i in range(timeout, 0, -1):
+def sleep_throttling(attempt):
+    """
+    Function to implement an Exponential Backoff throttling mechanism based on the given attempt number.
+    The delay between retries increases exponentially with the number of attempts,
+    allowing controlled retries and avoiding excessive immediate retries. During
+    the delay period, a countdown is displayed with progress feedback.
+
+    :param attempt: The current attempt number, starting from 0, that determines
+                    the delay duration. The delay is calculated as 2 ** attempt.
+    :type attempt: int
+    :return: None
+    """
+    delay = 2 ** attempt
+    for i in range(delay, 0, -1):
         sys.stdout.write(str(i) + ' ')
         sys.stdout.flush()
         minutes, seconds = divmod(i, 60)
-        print_progress_bar(i, timeout, prefix='sleep:', suffix=f"Осталось{' ' + str(minutes) + ' минут' if minutes > 0 else ''} и {seconds} секунд", length=50)
+        print_progress_bar(i, delay, prefix='sleep:', suffix=f"Осталось{' ' + str(minutes) + ' минут и' if minutes > 0 else ''} {seconds} секунд", length=50)
         time.sleep(1)
+
+
+def get_add_dialogs(driver):
+    add_dialogs = driver.find_elements(By.XPATH, "//*[text()='Добавить в альбом']")  # "//*[@aria-label='Добавление в альбом' and @role='dialog']"
+    return add_dialogs[::-1]
 
 
 def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
@@ -305,23 +324,27 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
         prev_dialogs_count = 0
         problems_count = 0
         while True:
-            check_popups(driver)
+            popup_text = check_popups(driver)
+            if popup_text:
+                print(f"Обнаружен попап {popup_text}")
+                problems_count += 1
+                sleep_throttling(problems_count)
+                print(f"Ошибок добавления: {problems_count}")
 
-            add_dialogs = driver.find_elements(By.XPATH, "//*[text()='Добавить в альбом']")  # "//*[@aria-label='Добавление в альбом' and @role='dialog']"
-            add_dialogs = add_dialogs[::-1]
+            add_dialogs = get_add_dialogs(driver)
             dialogs_count = len(add_dialogs)
             print(f"Открытых диалоговых окон: {dialogs_count}")
-            
+
+            if prev_dialogs_count != 0 and prev_dialogs_count == dialogs_count:
+                problems_count += 1
+                sleep_throttling(problems_count)
+                print(f"Ошибок добавления: {problems_count}")
+
             if problems_count >= 100:
                 print(f"Ошибка добавления {problems_count}. Обновление страницы")
                 driver.refresh()
                 break
 
-            if prev_dialogs_count != 0 and prev_dialogs_count == dialogs_count:
-                problems_count += 1
-                sleep_throttling(10 * 60)
-                print(f"Ошибок добавления: {problems_count}")
-               
             prev_dialogs_count = dialogs_count
 
             if not add_dialogs:
@@ -600,11 +623,9 @@ def check_popups(driver):
 
 
     if need_return:
-        return need_return
+        return False
 
-    print(f"Обнаружен попап {popup_text}")
-    sleep_throttling(10 * 60)
-    return True
+    return popup_text
 
 def search_folder_recursive(folder: str, root_path: str = '.') -> str|None:
     """
@@ -890,14 +911,14 @@ def main():
 class Inp:
     inp = None
 
-    def __init__(self):
-        t = Thread(target=self.get_input)
+    def __init__(self, hint=None):
+        t = Thread(target=self.get_input, args=(hint,))
         t.daemon = True
         t.start()
         t.join(timeout=500)
 
-    def get_input(self):
-        self.inp = input()
+    def get_input(self, hint):
+        self.inp = input(hint)
 
     def get(self):
         return self.inp
