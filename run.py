@@ -82,7 +82,7 @@ def get_driver() -> WebDriver:
 #todo иногда выбирается профиль левого человека, надо конерктизировать поиск
 #todo индикаторы загрузки  из интерфейса транслировать в консоль
 #todo алгоритм троттлинга
-def login(driver, usr, pwd):
+def login(driver: WebDriver, usr, pwd):
     # Enter user email
     elem = driver.find_element(By.NAME, "email")
     elem.send_keys(usr)
@@ -225,12 +225,12 @@ def add_trusted_device(driver):
         pass
 
 
-def save_cookies(driver, filename):
+def save_cookies(driver: WebDriver, filename):
     pickle.dump(driver.get_cookies(), open(filename, 'wb'))
     print("cookies saved successfully")
 
 
-def add_cookies(driver, filename):
+def add_cookies(driver: WebDriver, filename):
     try:
         cookies = pickle.load(open(filename, 'rb'))
     except FileNotFoundError:
@@ -286,7 +286,7 @@ def sleep_throttling(timeout):
         time.sleep(1)
 
 
-def upload_to_album(driver, album_id: int, files: list[str]):
+def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
     # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
     global index_file, index_to_album, size_to_album
 
@@ -398,7 +398,7 @@ def get_album_name() -> str:
         return album_name
 
 
-def create_album(driver, album_name, files: list[str]):
+def create_album(driver: WebDriver, album_name, files: list[str]):
     """
     Creates an album in the media management interface by uploading files, specifying album name, and handling errors
     during file uploads. This function ensures that the album is properly created with its unique identifier and descriptive
@@ -479,7 +479,7 @@ def create_album(driver, album_name, files: list[str]):
 
     return int(album_id)
 
-def set_album_confidentiality(driver, album_id: int):
+def set_album_confidentiality(driver: WebDriver, album_id: int):
     """
     Изменить видимость альбома
     :param driver:
@@ -673,7 +673,7 @@ def get_profile_id(driver):
         return profile_id
 
 
-def find_album(driver, album_name):
+def find_album(driver: WebDriver, album_name):
     """
     https://www.facebook.com/profile.php?id=100007859116486&sk=photos_albums
     @todo поиск альбома сделать опциональным
@@ -702,7 +702,7 @@ def find_album(driver, album_name):
         return None
 
 
-def scroll_to_end(driver, pause_time=3):
+def scroll_to_end(driver: WebDriver, pause_time=3):
     """
     Функция для прокрутки страницы до конца и проверки, что прокрутка завершена.
     """
@@ -716,7 +716,7 @@ def scroll_to_end(driver, pause_time=3):
         body.send_keys(Keys.SPACE)
         sleep(pause_time)  # Небольшая задержка, чтобы страница успела прогрузиться
 
-def wait_for_page_load(driver, timeout=1):
+def wait_for_page_load(driver: WebDriver, timeout=1):
     """
     Функция для ожидания окончания загрузки страницы
     Ожидание, пока document.readyState станет 'complete'.
@@ -883,7 +883,6 @@ def main():
 
     clear_saved_progress()
 
-    #todo если вызываем с параметром обновления cookie, то окно показывать игнорирую headless
     sleep(20)
 
     driver.close()# todo в wait паузы увеличить
