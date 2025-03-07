@@ -78,10 +78,11 @@ def get_driver() -> WebDriver:
 
 
 #todo попап медиафайл успешно добавлен скрывать, возможно он мешает по кнопке перехода к альбому кликать
-#todo убрать настройку видимости альбома, который уже существует и был найден
+#todo todo todo убрать настройку видимости альбома, который уже существует и был найден
 #todo иногда выбирается профиль левого человека, надо конерктизировать поиск
 #todo индикаторы загрузки  из интерфейса транслировать в консоль
-#todo алгоритм троттлинга
+#todo при закидывании файлов дождаться пока все окна появятся
+
 def login(driver: WebDriver, usr, pwd):
     # Enter user email
     elem = driver.find_element(By.NAME, "email")
@@ -195,6 +196,8 @@ def check_page(driver: WebDriver, page: str) -> str | bool:
 
         case _:
             return False
+
+#todo для паузы доработать форматированный вывод оставшегося времени, часы тоже выводить
 
 def two_step_verification_wait(driver):
     """
@@ -316,64 +319,74 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
     while True:
 
         # Загрузка файлов
-        files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
+        files_input = WebDriverWait(driver, 1000).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
         set_files_to_field(files_input, files)
 
         # Кнопка "Добавить в альбом"
-        sleep(5)
+
+        sleep(1)# todo паузу заменить ожиданием попапов
         prev_dialogs_count = 0
         problems_count = 0
         while True:
-            popup_text = check_popups(driver)
-            if popup_text:
-                print(f"Обнаружен попап {popup_text}")
-                problems_count += 1
-                sleep_throttling(problems_count)
-                print(f"Ошибок добавления: {problems_count}")
+            try:     
+                popup_text = check_popups(driver)
+                if popup_text:
+                    print(f"Обнаружен попап {popup_text}")
+                    problems_count += 1
+                    sleep_throttling(problems_count)
+                    print(f"Ошибок добавления: {problems_count}")
 
-            add_dialogs = get_add_dialogs(driver)
-            dialogs_count = len(add_dialogs)
-            print(f"Открытых диалоговых окон: {dialogs_count}")
+                add_dialogs = get_add_dialogs(driver)
+                dialogs_count = len(add_dialogs)
+                print(f"Открытых диалоговых окон: {dialogs_count}")
 
-            if prev_dialogs_count != 0 and prev_dialogs_count == dialogs_count:
-                problems_count += 1
-                sleep_throttling(problems_count)
-                print(f"Ошибок добавления: {problems_count}")
+                if prev_dialogs_count != 0 and prev_dialogs_count == dialogs_count:
+                    problems_count += 1
+                    sleep_throttling(problems_count)
+                    print(f"Ошибок добавления: {problems_count}")
 
-            if problems_count >= 100:
-                print(f"Ошибка добавления {problems_count}. Обновление страницы")
-                driver.refresh()
+                if problems_count >= 100:
+                    print(f"Ошибка добавления {problems_count}. Обновление страницы")
+                    driver.refresh()
+                    break
+
+                prev_dialogs_count = dialogs_count
+
+                if not add_dialogs:
+                    break
+
+                for index, button in enumerate(add_dialogs):
+                    try:
+                        button_container = button.find_element(By.XPATH, ".//ancestor::div[@aria-label=\"Добавить в альбом\"]")
+                        WebDriverWait(driver, 500).until(lambda x: button_container.get_attribute("aria-disabled") != "true" or button_container.get_attribute("aria-disabled") is None)
+                        button.click()
+                    except WebDriverException:
+                        continue
+
+                    print(f"Сохранение фото")
+
+
+                    # После клика дождаться пока опубликуется
+                    WebDriverWait(driver, 500).until(lambda x: not driver.find_elements(By.XPATH, "//*[text()='Публикация']"))
+                    
+                    del add_dialogs[index]
+
+                    break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
+
+            except TimeoutException:
+                print(f"Ошибка добавления: таймаут")
                 break
-
-            prev_dialogs_count = dialogs_count
-
-            if not add_dialogs:
-                break
-
-            for index, button in enumerate(add_dialogs):
-                try:
-                    button_container = button.find_element(By.XPATH, ".//ancestor::div[@aria-label=\"Добавить в альбом\"]")
-                    WebDriverWait(driver, 500).until(lambda x: button_container.get_attribute("aria-disabled") != "true" or button_container.get_attribute("aria-disabled") is None)
-                    button.click()
-                except WebDriverException:
-                    continue
-
-                print(f"Сохранение фото")
-                del add_dialogs[index]
-
-                # После клика дождаться пока опубликуется
-                wait = WebDriverWait(driver, 50)
-                wait.until(lambda x: not driver.find_elements(By.XPATH, "//*[text()='Публикация']"))
-
-                break  # После отправки формы список диалоговых окон нужно получать заново, т.к. самого верхнего окна в списке больше не осталось
 
         if add_dialogs:
-            #сброс счетчиков для текущего блока файлов
+            print("Сброс счетчиков для текущего блока файлов")
             for file in files:
                 index_file -= 1
                 index_to_album -= 1
                 size_to_album -= file[1][1]
 
+            driver.refresh()
+                    
+            print("Идем грузить блок файлов заново")
             continue
 
         print("Сохранение списка фото успешно, идем за новым списком")
@@ -797,6 +810,8 @@ def main():
     # Go to facebook.com
     driver.get(home)
 
+    Watcher(driver)
+
     is_authorized = False
     # todo после сокрытия попапа "Что произошло" паузу не делать
  
@@ -922,6 +937,26 @@ class Inp:
 
     def get(self):
         return self.inp
+
+
+class Watcher:
+    instance = None
+
+    def __init__(self, driver):
+        t = Thread(target=self.run, args=(driver,))
+        t.daemon = True
+        t.start()
+
+    def run(self, driver):
+        while True:
+            try: 
+                element = WebDriverWait(driver, 10000).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Страница сейчас недоступна']")))
+                print(f'Watcher: обнаружено сообщение {element.text}')
+                driver.refresh()
+            except TimeoutException:
+                pass
+
+
 
 if __name__ == '__main__':
     main()
