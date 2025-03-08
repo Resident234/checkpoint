@@ -78,7 +78,6 @@ def get_driver() -> WebDriver:
 
 
 #todo попап медиафайл успешно добавлен скрывать, возможно он мешает по кнопке перехода к альбому кликать
-#todo todo todo убрать настройку видимости альбома, который уже существует и был найден
 #todo иногда выбирается профиль левого человека, надо конерктизировать поиск
 #todo индикаторы загрузки  из интерфейса транслировать в консоль
 #todo при закидывании файлов дождаться пока все окна появятся
@@ -325,6 +324,8 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
         # Кнопка "Добавить в альбом"
 
         sleep(1)# todo паузу заменить ожиданием попапов
+        # Добавление в альбом
+
         prev_dialogs_count = 0
         problems_count = 0
         while True:
@@ -892,10 +893,11 @@ def main():
                 album_id = create_album(driver, album_name, files_splited[0])
                 del files_splited[0]
                 print(f"Альбом {album_name} добавлен, ID альбома {album_id}")
+                set_album_confidentiality(driver, album_id)
             else:
                 print(f"Альбом {album_name} найден, ID альбома {album_id}")
 
-            set_album_confidentiality(driver, album_id)
+
         else:
             album_id = progress[0]
             album_name = progress[2]
