@@ -116,8 +116,7 @@ def solve_captcha(driver):
     try:
         WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
     except WebDriverException:
-        driver.close()
-        sys.exit('Капча не решена')
+        pass
 
 def solve_audio_captcha(driver):
     audio_src = driver.find_element(By.XPATH, "//*[text()='воспроизвести аудио']").get_attribute('href')
@@ -827,8 +826,19 @@ def main():
         else:
             driver.get(home)
             login(driver, usr, pwd)
-        if check_page(driver, 'captcha'):
-            solve_captcha(driver)
+
+        index = 0
+        while True:
+            if check_page(driver, 'captcha'):
+                solve_captcha(driver)
+            else:
+                break
+
+            index += 1
+            if index > 30:
+                driver.close()
+                sys.exit('Капча не решена')
+
         if check_page(driver, 'two_step_verification'):
             two_step_verification_wait(driver)
         if check_page(driver, 'add_trusted_device'):
