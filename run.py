@@ -313,6 +313,7 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
     print(f"ID альбома: {album_id}")
 
     driver.get(f"{home}media/set/edit/a.{album_id}")
+    add_dialogs = None
 
     while True:
 
@@ -466,7 +467,15 @@ def create_album(driver: WebDriver, album_name, files: list[str]):
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='Отправить']")
 
     retry_count = 0
+    popup_count = 0
     while True:
+        popup_text = check_popups(driver)
+        if popup_text:
+            print(f"Обнаружен попап {popup_text}")
+            popup_count += 1
+            sleep_throttling(popup_count)
+            print(f"Ошибок добавления: {popup_count}")
+
         # проверка на ошибки загрузки отдельных файлов
         try:
             repeat_button = driver.find_element(By.XPATH, "//*[text()='Повторить попытку']")
@@ -802,6 +811,7 @@ def main():
     #cookie_filename = usr + ' ' + cookie_filename todo в название файла логин добавить
     #todo Эта публикация нарушает наши Нормы сообщества - это сообщение обрабатывать
     #todo Не удалось опубликовать фото - обрабатывать попап-ошибку - это такой же попап как и Вы временно заблокированы
+    #todo Вы временно заблокированы - страница /media/set/edit/a.3967419006863364
 
     parse_cli_args()
 
@@ -848,7 +858,6 @@ def main():
     driver.refresh()
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
-    # Попап блокировки распозначать на этапе создания нового альбома
 
     if folder.split('\\').__len__() == 1:
         # Задано только название папки, а не полный путь - найти папку
