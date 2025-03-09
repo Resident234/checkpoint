@@ -322,9 +322,7 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
         set_files_to_field(files_input, files)
 
         # Кнопка "Добавить в альбом"
-
-        sleep(1)# todo паузу заменить ожиданием попапов
-        # Добавление в альбом
+        WebDriverWait(driver, 300).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Добавление в альбом']")))
 
         prev_dialogs_count = 0
         problems_count = 0
@@ -962,6 +960,7 @@ class Inp:
 
 class Watcher:
     instance = None
+    problems_count = 0
 
     def __init__(self, driver):
         t = Thread(target=self.run, args=(driver,))
@@ -971,10 +970,13 @@ class Watcher:
     def run(self, driver):
         while True:
             try: 
-                element = WebDriverWait(driver, 10000).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Страница сейчас недоступна']")))
+                element = WebDriverWait(driver, 1000).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Страница сейчас недоступна']")))
                 print(f'Watcher: обнаружено сообщение {element.text}')
+                self.problems_count += 1
+                sleep_throttling(self.problems_count)
                 driver.refresh()
             except TimeoutException:
+                self.problems_count = 0
                 pass
 
 
