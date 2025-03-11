@@ -27,20 +27,16 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-import pyaudio
-import webrtcvad
-import wave
 import speech_recognition as sr
 from pydub import AudioSegment
 from threading import Thread
-from tqdm import tqdm
 
 
 import config
 
 home: str = 'https://www.facebook.com/'
 folder = ""
-index_file = 1
+index_file = 1#todo в конфиг поубирать
 index_to_album = 0
 count_all_files = 0
 size_to_album = 0
@@ -48,6 +44,7 @@ size_all_files = 0
 cookie_filename = "fb.pkl"
 progress_filename = f"progress.pkl"
 profile_id = 0
+profile_name = 'Сергей Гладышев'
 album_name = ""
 
 splited_size = 20
@@ -78,7 +75,6 @@ def get_driver() -> WebDriver:
 
 
 #todo попап медиафайл успешно добавлен скрывать, возможно он мешает по кнопке перехода к альбому кликать
-#todo иногда выбирается профиль левого человека, надо конерктизировать поиск
 #todo индикаторы загрузки  из интерфейса транслировать в консоль
 #todo при закидывании файлов дождаться пока все окна появятся
 
@@ -316,6 +312,8 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
     add_dialogs = None
 
     while True:
+
+        #todo обнаружение попапа "Вы временно заблокированы" сюда добавить
 
         # Загрузка файлов
         files_input = WebDriverWait(driver, 1000).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
@@ -708,11 +706,11 @@ def get_profile_id(driver):
         # Проверить ссылки на наличие "https://www.facebook.com/profile.php?id="
         for link in links:
             href = link.get_attribute('href')
-            if href and home + "profile.php?id=" in href:
+            if href and home + "profile.php?id=" in href and link.text == profile_name:
                 parsed_url = parse.urlparse(href)
                 profile_id = parse.parse_qs(parsed_url.query).get("id", [None])[0]
         return profile_id
-
+#todo кэш для вычисленных значений
 
 def find_album(driver: WebDriver, album_name):
     """
@@ -970,10 +968,10 @@ class Watcher:
     def run(self, driver):
         while True:
             try: 
-                element = WebDriverWait(driver, 1000).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Страница сейчас недоступна']")))
+                element = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Страница сейчас недоступна']")))
                 print(f'Watcher: обнаружено сообщение {element.text}')
                 self.problems_count += 1
-                sleep_throttling(self.problems_count)
+                sleep(100)
                 driver.refresh()
             except TimeoutException:
                 self.problems_count = 0
