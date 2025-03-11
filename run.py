@@ -539,7 +539,6 @@ def set_album_confidentiality(driver: WebDriver, album_id: int):
     submit_button.click()
     sleep(3)
     # todo нужно проверять "Мы удалили вашу публикацию при открытии альбома на редактировании"
-    # todo на первом запуске стал валиться
 
 
 def parse_cli_args():
@@ -730,13 +729,15 @@ def find_album(driver: WebDriver, album_name):
 
     # Найти родителя ссылку и выдернуть id из выражения href="https://www.facebook.com/media/set/?set=a.3784912368447363&type=3"
     parent_link = span_element.find_element(By.XPATH, "./ancestor::a")
+    count_text = parent_link.find_element(By.XPATH, f"//*[contains(text(), 'объекта')]")
+    number = int(re.sub(r"\D", "", count_text))
 
     # Извлечь id из href
     href = parent_link.get_attribute("href")
     match = re.search(r"set=a\.(\d+)", href)
     if match:
         media_id = match.group(1)
-        return media_id
+        return (media_id, number)
     else:
         return None
 
@@ -875,7 +876,6 @@ def main():
     driver.get(home)
 
     #files {id: (название, размер, полное название)}
-
     if files:
         files = [(id, (name, size, full_name)) for id, (name, size, full_name) in files.items()]
         # files [(id, (название, размер, полное название))]
@@ -902,7 +902,11 @@ def main():
             # Создание альбома и загрузка файлов
             album_name = get_album_name()
             wait_for_element(driver, "//*[@aria-label=\"Поиск на Facebook\"]")
-            album_id = find_album(driver, album_name)
+            album_id, count_photo_in_album = find_album(driver, album_name)
+
+            if count_photo_in_album >= 1000:
+                album_id = None
+
             if not album_id:
                 print(f"Альбом {album_name} не найден")
                 album_id = create_album(driver, album_name, files_splited[0])
