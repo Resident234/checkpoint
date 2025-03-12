@@ -34,6 +34,7 @@ from threading import Thread
 
 import config
 
+#todo для работы с глобальными переменными нужен другой способ
 home: str = 'https://www.facebook.com/'
 folder = ""
 index_file = 1#todo в конфиг поубирать
@@ -46,6 +47,7 @@ progress_filename = f"progress.pkl"
 profile_id = 0
 profile_name = 'Сергей Гладышев'
 album_name = ""
+album_id = None
 
 splited_size = 20
 renew_cookie = False
@@ -551,9 +553,11 @@ def parse_cli_args():
     run.py --folder "Домашние" --splitedsize=10 --rootfolder D:\\PHOTO --checkduplicates
     run.py --folder "аэропорт Симферополь Москва" --splitedsize=10 --rootfolder D:\\PHOTO --headless
     run.py --folder "Узбекистан" --splitedsize=3 --rootfolder G:\\PHOTO
+    run.py --folder "Узбекистан" --splitedsize=1 --rootfolder G:\\PHOTO --headless
+    run.py --folder "Узбекистан" --splitedsize=5 --rootfolder G:\\PHOTO --headless --albumid=4003113339960597
 
     """
-    global folder, renew_cookie, splited_size, root_folder, is_headless, check_duplicates, recursive
+    global folder, renew_cookie, splited_size, root_folder, is_headless, check_duplicates, recursive, album_id
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--folder', dest='folder', type=str, help='Full path to the folder', required=True)
@@ -563,6 +567,7 @@ def parse_cli_args():
     parser.add_argument('--renewcookie', help='Force renew cookie', action="store_true")
     parser.add_argument('--checkduplicates', help='Check for duplicates before uploading', action="store_true")
     parser.add_argument('--recursive', help='Search files in subfolders', action="store_true")
+    parser.add_argument('--albumid', help='Album id for upload', type=int)
     args = parser.parse_args()
     folder = args.folder
     renew_cookie = args.renewcookie
@@ -571,6 +576,7 @@ def parse_cli_args():
     is_headless = args.headless
     check_duplicates = args.checkduplicates
     recursive = args.recursive
+    album_id = args.albumid
 
 def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
@@ -803,7 +809,7 @@ def wait_for_element(driver: WebDriver, by: str, timeout: int = 1) -> None:
         break
 
 def main():
-    global index_file, folder, size_all_files, count_all_files
+    global index_file, folder, size_all_files, count_all_files, album_id
     # todo проверка если куки истекли, но по факту авторизаци с ними произошал успешно
 
     # Your Facebook account user and password
@@ -906,28 +912,31 @@ def main():
 
         files_splited = [files[x:x + splited_size] for x in range(0, len(files), splited_size)]
 
-        if not progress:
-            # Создание альбома и загрузка файлов
-            album_name = get_album_name()
-            wait_for_element(driver, "//*[@aria-label=\"Поиск на Facebook\"]")
-            album_id, count_photo_in_album = find_album(driver, album_name)
-
-            if count_photo_in_album >= 1000:
-                album_id = None
-
-            if not album_id:
-                print(f"Альбом {album_name} не найден")
-                album_id = create_album(driver, album_name, files_splited[0])
-                del files_splited[0]
-                print(f"Альбом {album_name} добавлен, ID альбома {album_id}")
-                set_album_confidentiality(driver, album_id)
-            else:
-                print(f"Альбом {album_name} найден, ID альбома {album_id}")
-
-
+        if album_id:# задан в параметрах при запуске
+            album_name = album_id #todo название альбома вычислять по id альбома
         else:
-            album_id = progress[0]
-            album_name = progress[2]
+            if not progress:
+                # Создание альбома и загрузка файлов
+                album_name = get_album_name()
+                wait_for_element(driver, "//*[@aria-label=\"Поиск на Facebook\"]")
+                album_id, count_photo_in_album = find_album(driver, album_name)
+
+                if count_photo_in_album >= 3000: #todo в конфиг
+                    album_id = None
+
+                if not album_id:
+                    print(f"Альбом {album_name} не найден")
+                    album_id = create_album(driver, album_name, files_splited[0])
+                    del files_splited[0]
+                    print(f"Альбом {album_name} добавлен, ID альбома {album_id}")
+                    set_album_confidentiality(driver, album_id)
+                else:
+                    print(f"Альбом {album_name} найден, ID альбома {album_id}")
+
+            else:
+                album_id = progress[0] #todo создать реестр в котором хранить информацию о заполненности альбомов и остальную информацию, которую можно не вычислять заново
+                album_name = progress[2]
+
 
         print(f"Название альбома: {album_name}, ID альбома: {album_id}")
 
