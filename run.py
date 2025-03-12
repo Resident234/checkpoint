@@ -723,7 +723,15 @@ def find_album(driver: WebDriver, album_name):
 
     # Далее ищем текст внутри span
     try:
-        span_element = driver.find_element(By.XPATH, f"//span[text()='{album_name}']")
+        """
+        Этот вариант корректно работает для случаев: 
+        ✅ "album_name"
+        ✅ "album_name 2"
+        ✅ "album_name 15"
+        ❌ "album_name xyz" (отфильтрует, так как нет числа в конце)
+        """
+        span_elements = driver.find_elements(By.XPATH,f"//span[text()='{album_name}' or (starts-with(text(), '{album_name} ') and text()[string-length() - string-length(translate(text(), '0123456789', ''))] > 0)]")
+        span_element = span_elements[-1]
     except NoSuchElementException:
         return None
 
