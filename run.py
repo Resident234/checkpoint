@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import os
 import pickle
 import re
@@ -58,6 +59,13 @@ recursive = False
 
 threadLocal = threading.local()
 
+def print_function_name(func):#todo еще данные с параметров тоже выводить
+    def wrapper(*args, **kwargs):
+        print(inspect.currentframe().f_code.co_name.replace("_", " ").capitalize())  # Print function name
+        return func(*args, **kwargs)
+    return wrapper
+
+@print_function_name
 def get_driver() -> WebDriver:
     driver = getattr(threadLocal, 'driver', None)
     if driver is None:
@@ -80,6 +88,7 @@ def get_driver() -> WebDriver:
 #todo индикаторы загрузки  из интерфейса транслировать в консоль
 #todo при закидывании файлов дождаться пока все окна появятся
 
+@print_function_name
 def login(driver: WebDriver, usr, pwd):
     # Enter user email
     elem = driver.find_element(By.NAME, "email")
@@ -93,6 +102,7 @@ def login(driver: WebDriver, usr, pwd):
 #todo если открытых диалоговых окон 0, то повторный поиск диалоговых окон
 #todo мы удалили публикацию распознавать на всех страницах
 
+@print_function_name
 def solve_captcha(driver):
     """
     Распознавать страницу запроса капчу и ждать ввода
@@ -116,6 +126,7 @@ def solve_captcha(driver):
     except WebDriverException:
         pass
 
+@print_function_name
 def solve_audio_captcha(driver):
     audio_src = driver.find_element(By.XPATH, "//*[text()='воспроизвести аудио']").get_attribute('href')
     driver.execute_script("window.open('');")
@@ -152,7 +163,7 @@ def solve_audio_captcha(driver):
 
     return captcha_text
 
-
+@print_function_name
 def check_page(driver: WebDriver, page: str) -> str | bool:
     match page:
         case 'captcha': # страница запроса капчи
@@ -195,6 +206,7 @@ def check_page(driver: WebDriver, page: str) -> str | bool:
 
 #todo для паузы доработать форматированный вывод оставшегося времени, часы тоже выводить
 
+@print_function_name
 def two_step_verification_wait(driver):
     """
     бесконечное ожидание, пока я вход на телефоне не подтвержу
@@ -215,6 +227,7 @@ def two_step_verification_wait(driver):
         driver.close()
         sys.exit('Код из уведомления не был введен')
 
+@print_function_name
 def add_trusted_device(driver):
     """
     Если появится кпонка "Сделать устройство доверенным"
@@ -226,12 +239,12 @@ def add_trusted_device(driver):
     except NoSuchElementException:
         pass
 
-
+@print_function_name
 def save_cookies(driver: WebDriver, filename):
     pickle.dump(driver.get_cookies(), open(filename, 'wb'))
     print("cookies saved successfully")
 
-
+@print_function_name
 def add_cookies(driver: WebDriver, filename):
     try:
         cookies = pickle.load(open(filename, 'rb'))
@@ -255,15 +268,17 @@ def add_cookies(driver: WebDriver, filename):
     else:
         return False
 
+@print_function_name
 def save_progress(album_id, file_number, album_name):
-    print(f'save_progress') #todo имя функции выводить в консоль автоматически
     pickle.dump([album_id, file_number, album_name], open(progress_filename, 'wb'))
 
+@print_function_name
 def clear_saved_progress():
     if os.path.isfile(progress_filename):
         os.remove(progress_filename)
     print(f"Сохраненный прогресс {progress_filename} очищен")
 
+@print_function_name
 def restore_progress() -> bool | tuple[Any]:
     try:
         progress = pickle.load(open(progress_filename, 'rb'))
@@ -278,6 +293,7 @@ def restore_progress() -> bool | tuple[Any]:
 # todo доработать ошибку таймаута в случае обрыва соединения
 # todo вести статистику ошибок сохранения конкретных файлов и перезапускать сохранение, исключив проблемные файлы из списка
 
+@print_function_name
 def sleep_throttling(attempt):
     """
     Function to implement an Exponential Backoff throttling mechanism based on the given attempt number.
@@ -298,12 +314,12 @@ def sleep_throttling(attempt):
         print_progress_bar(i, delay, prefix='sleep:', suffix=f"Осталось{' ' + str(minutes) + ' минут и' if minutes > 0 else ''} {seconds} секунд", length=50)
         time.sleep(1)
 
-
+@print_function_name
 def get_add_dialogs(driver):
     add_dialogs = driver.find_elements(By.XPATH, "//*[text()='Добавить в альбом']")  # "//*[@aria-label='Добавление в альбом' and @role='dialog']"
     return add_dialogs[::-1]
 
-
+@print_function_name
 def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
     # Открытие созданного альбома на редактирование и догрузка в него остальных файлов
     global index_file, index_to_album, size_to_album
@@ -420,7 +436,7 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
 
     save_progress(album_id, index_file, get_album_name())
 
-
+@print_function_name
 def get_album_name(driver=None, album_id=None) -> str:
     """
     Ввести название альбома
@@ -448,7 +464,7 @@ def get_album_name(driver=None, album_id=None) -> str:
 
             return album_name
 
-
+@print_function_name
 def create_album(driver: WebDriver, album_name, files: list[str]):
     """
     Creates an album in the media management interface by uploading files, specifying album name, and handling errors
@@ -462,8 +478,8 @@ def create_album(driver: WebDriver, album_name, files: list[str]):
     :type files: list[str]
     :return: A tuple containing the album's unique identifier as an integer and its descriptive name as a string.
     :rtype: tuple[int, str]
-    @todo каждая функция выводит в своем начале сообщение
     """
+    print(inspect.currentframe().f_code.co_name.replace("_", " "))
     global index_file, index_to_album
     driver.get(home + "media/set/create")
 
@@ -539,6 +555,7 @@ def create_album(driver: WebDriver, album_name, files: list[str]):
 
     return int(album_id)
 
+@print_function_name
 def set_album_confidentiality(driver: WebDriver, album_id: int):
     """
     Изменить видимость альбома
@@ -569,6 +586,7 @@ def set_album_confidentiality(driver: WebDriver, album_id: int):
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
     submit_button.click()
 
+@print_function_name
 def parse_cli_args():
     """
     Пример ввода
@@ -624,6 +642,7 @@ def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1,
     if iteration == total:
         print()
 
+@print_function_name
 def set_files_to_field(files_input: WebElement, files: list):
     global index_file, index_to_album, count_all_files, size_to_album, size_all_files
 
@@ -645,6 +664,7 @@ def set_files_to_field(files_input: WebElement, files: list):
         print_progress_bar(size_to_album, size_all_files, prefix='Progress:', suffix='Complete', length=50)
         sleep(0.2)
 
+@print_function_name
 def check_popups(driver):
     """
     Попапы "Мы удалили вашу публикацию" и "Вы временно заблокированы" обрабатывать
@@ -675,6 +695,7 @@ def check_popups(driver):
 
     return popup_text
 
+@print_function_name
 def search_folder_recursive(folder: str, root_path: str = '.') -> str|None:
     """
 
@@ -718,12 +739,12 @@ def get_hash(f):
 
     return md5.hexdigest()
 
-
+@print_function_name
 def get_files_size(files: list, print: bool = True) -> int|str:
     files_sizes = [size for _, (_, size, _) in files]
     return size(sum(files_sizes)) if print else sum(files_sizes)
 
-
+@print_function_name
 def get_profile_id(driver):
     global profile_id
 
@@ -742,6 +763,7 @@ def get_profile_id(driver):
         return profile_id
 #todo кэш для вычисленных значений
 
+@print_function_name
 def find_album(driver: WebDriver, album_name):
     """
     https://www.facebook.com/profile.php?id=100007859116486&sk=photos_albums
@@ -780,7 +802,7 @@ def find_album(driver: WebDriver, album_name):
     else:
         return None
 
-
+@print_function_name
 def scroll_to_end(driver: WebDriver, pause_time=3):
     """
     Функция для прокрутки страницы до конца и проверки, что прокрутка завершена.
@@ -795,6 +817,7 @@ def scroll_to_end(driver: WebDriver, pause_time=3):
         body.send_keys(Keys.SPACE)
         sleep(pause_time)  # Небольшая задержка, чтобы страница успела прогрузиться
 
+@print_function_name
 def wait_for_page_load(driver: WebDriver, timeout=1):
     """
     Функция для ожидания окончания загрузки страницы
@@ -810,7 +833,6 @@ def wait_for_page_load(driver: WebDriver, timeout=1):
     print("Тайм-аут: страница не загрузилась полностью.")
     return False
 
-
 def can_scroll_down(driver):
     """ Функция для проверки возможности дальнейшей прокрутки вниз """
     current_scroll = driver.execute_script("return window.scrollY + window.innerHeight;")
@@ -818,6 +840,7 @@ def can_scroll_down(driver):
     return current_scroll < total_height
 
 
+@print_function_name
 def wait_for_element(driver: WebDriver, by: str, timeout: int = 1) -> None:
     """
 
@@ -1022,8 +1045,6 @@ class Watcher:
             except TimeoutException:
                 self.problems_count = 0
                 pass
-
-
 
 if __name__ == '__main__':
     main()
