@@ -312,12 +312,21 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
 
     driver.get(f"{home}media/set/edit/a.{album_id}")
     add_dialogs = None
+    problems_count = 0
 
     while True:
 
-        #todo обнаружение попапа "Вы временно заблокированы" сюда добавить
+        popup_text = check_popups(driver)
+        if popup_text:
+            print(f"Обнаружен попап {popup_text}")
+            print_progress_bar(size_to_album, size_all_files, prefix='Текущий прогресс:', suffix='Complete', length=50)
+            problems_count += 1
+            sleep_throttling(problems_count)
+            print(f"Ошибок загрузки файлов: {problems_count}")
+            continue
 
-        # Загрузка файлов
+
+        print("Загрузка файлов")
         files_input = WebDriverWait(driver, 1000).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
         set_files_to_field(files_input, files)
 
@@ -331,6 +340,7 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
                 popup_text = check_popups(driver)
                 if popup_text:
                     print(f"Обнаружен попап {popup_text}")
+                    print_progress_bar(size_to_album, size_all_files, prefix='Текущий прогресс:', suffix='Complete', length=50)
                     problems_count += 1
                     sleep_throttling(problems_count)
                     print(f"Ошибок добавления: {problems_count}")
@@ -458,8 +468,8 @@ def create_album(driver: WebDriver, album_name, files: list[str]):
     elem.send_keys(album_name)
     print(f"Название альбома: {album_name}")
 
-    # @todo страницу "Недавние входы" обрабатывать
     # @todo релоад стрницы, если есть подозрение что страница зависла или не прогрузилась
+    
     # Дождаться загрузки файлов и нажать кнопку создания альбома
     submit_button = driver.find_element(By.XPATH, "//*[text()='Отправить']")
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='Отправить']")
@@ -470,6 +480,7 @@ def create_album(driver: WebDriver, album_name, files: list[str]):
         popup_text = check_popups(driver)
         if popup_text:
             print(f"Обнаружен попап {popup_text}")
+            print_progress_bar(size_to_album, size_all_files, prefix='Текущий прогресс:', suffix='Complete', length=50)
             popup_count += 1
             sleep_throttling(popup_count)
             print(f"Ошибок добавления: {popup_count}")
@@ -528,6 +539,18 @@ def set_album_confidentiality(driver: WebDriver, album_id: int):
     :param driver:
     :param album_id:
     """
+
+    problems_count = 0
+    while True:
+        popup_text = check_popups(driver)
+        if popup_text:
+            print(f"Обнаружен попап {popup_text}")
+            problems_count += 1
+            sleep_throttling(problems_count)
+            continue
+        else:
+            break
+    
     print('Настройка видимости альбома')
     driver.get(f"{home}media/set/edit/a.{album_id}")
     button = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[contains(@aria-label,'Изменить конфиденциальность.')]")))
@@ -539,9 +562,6 @@ def set_album_confidentiality(driver: WebDriver, album_id: int):
     button.click()
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
     submit_button.click()
-    sleep(3)
-    # todo нужно проверять "Мы удалили вашу публикацию при открытии альбома на редактировании"
-
 
 def parse_cli_args():
     """
@@ -628,7 +648,6 @@ def check_popups(driver):
     popup_text = None
     try:
         popup = driver.find_element(By.XPATH, "//*[text()='Вы временно заблокированы' or text()='Мы удалили вашу публикацию' or text()='Что произошло']")
-        #todo прогресс бар еще радом с этим сообщением выводить
         popup_text = popup.text
         buttons = driver.find_elements(By.XPATH, "//*[text()='OK' or @aria-label='Закрыть']")
 
