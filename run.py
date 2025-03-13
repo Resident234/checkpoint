@@ -421,7 +421,7 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
     save_progress(album_id, index_file, get_album_name())
 
 
-def get_album_name() -> str:
+def get_album_name(driver=None, album_id=None) -> str:
     """
     Ввести название альбома
     :rtype: str
@@ -429,18 +429,24 @@ def get_album_name() -> str:
     """
     global album_name
 
-    if album_name and album_name != "":
+    if driver and album_id:
+        driver.get(f"{home}media/set/edit/a.{album_id}")
+        album_name = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='text']"))).get_attribute("value")
+
         return album_name
     else:
-        album_name = folder.split("\\")
-        album_name = list(filter(None, album_name))
+        if album_name and album_name != "":
+            return album_name
+        else:
+            album_name = folder.split("\\")
+            album_name = list(filter(None, album_name))
 
-        del album_name[0]
-        del album_name[0]
-        album_name = '\\'.join(album_name)
-        album_name = album_name.replace('\\\\', '\\')
+            del album_name[0]
+            del album_name[0]
+            album_name = '\\'.join(album_name)
+            album_name = album_name.replace('\\\\', '\\')
 
-        return album_name
+            return album_name
 
 
 def create_album(driver: WebDriver, album_name, files: list[str]):
@@ -932,7 +938,7 @@ def main():
         files_splited = [files[x:x + splited_size] for x in range(0, len(files), splited_size)]
 
         if album_id:# задан в параметрах при запуске
-            album_name = album_id #todo название альбома вычислять по id альбома
+            album_name = get_album_name(driver, album_id)
         else:
             if not progress:
                 # Создание альбома и загрузка файлов
