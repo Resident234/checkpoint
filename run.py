@@ -446,8 +446,10 @@ def get_album_name(driver=None, album_id=None) -> str:
     global album_name
 
     if driver and album_id:
+        current_page = driver.current_url
         driver.get(f"{home}media/set/edit/a.{album_id}")
         album_name = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='text']"))).get_attribute("value")
+        driver.get(current_page)
 
         return album_name
     else:
