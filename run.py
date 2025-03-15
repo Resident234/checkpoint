@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 from datetime import datetime
+from functools import wraps
 from os import listdir
 from os.path import isfile, isdir, join
 from pathlib import Path
@@ -60,8 +61,10 @@ recursive = False
 threadLocal = threading.local()
 
 def print_function_name(func):#todo еще данные с параметров тоже выводить
+    @wraps(func)
     def wrapper(*args, **kwargs):
-        print(inspect.currentframe().f_code.co_name.replace("_", " ").capitalize())  # Print function name
+        function_name = func.__name__.replace("_", " ").capitalize()
+        print(function_name)  # Print function name
         return func(*args, **kwargs)
     return wrapper
 
@@ -437,9 +440,11 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
     save_progress(album_id, index_file, get_album_name())
 
 @print_function_name
-def get_album_name(driver=None, album_id=None) -> str:
+def get_album_name(driver: WebDriver = None, album_id: int = None) -> str:
     """
     Ввести название альбома
+    :param driver:
+    :type album_id: object
     :rtype: str
     :return: 
     """
@@ -623,6 +628,8 @@ def parse_cli_args():
     check_duplicates = args.checkduplicates
     recursive = args.recursive
     album_id = args.albumid
+
+#todo надо проверить клик по окну "Вы врененно заблокированы", возможно он не работает
 
 def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
@@ -916,6 +923,7 @@ def main():
             add_trusted_device(driver)
         save_cookies(driver, cookie_filename)
 
+    print('refresh')
     driver.refresh()
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
