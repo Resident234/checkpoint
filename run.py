@@ -369,6 +369,7 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
                 print(f"Открытых диалоговых окон: {dialogs_count}")
 
                 if prev_dialogs_count != 0 and prev_dialogs_count == dialogs_count:
+                    print_progress_bar(size_to_album, size_all_files, prefix='Текущий прогресс:', suffix='Complete', length=50)
                     problems_count += 1
                     sleep_throttling(problems_count)
                     print(f"Ошибок добавления: {problems_count}")
@@ -630,6 +631,7 @@ def parse_cli_args():
     album_id = args.albumid
 
 #todo надо проверить клик по окну "Вы врененно заблокированы", возможно он не работает
+#todo если время паузы стало очень большое, то пробуем ребутнуть страницу и загрузить заново
 
 def print_progress_bar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
     """
