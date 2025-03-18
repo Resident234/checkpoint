@@ -57,6 +57,7 @@ root_folder = ''
 is_headless = False
 check_duplicates = False
 recursive = False
+connection_status = True
 
 threadLocal = threading.local()
 
@@ -290,7 +291,7 @@ def restore_progress() -> bool | tuple[Any]:
 
     return *progress,
 
-# todo распознавать сообщение об отсуствии интернета и ставить процесс на паузу
+
 # todo подумать как отрефакторить эти циклы и оптимизировать
 # todo все всплывающие уведомления транслировать в консоль
 # todo доработать ошибку таймаута в случае обрыва соединения
@@ -329,12 +330,13 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
 
     print(f"ID альбома: {album_id}")
 
+    check_connection(driver)
     driver.get(f"{home}media/set/edit/a.{album_id}")
     add_dialogs = None
     problems_count = 0
 
     while True:
-
+        check_connection(driver)
         popup_text = check_popups(driver)
         if popup_text:
             print(f"Обнаружен попап {popup_text}")
@@ -355,6 +357,7 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
         prev_dialogs_count = 0
         problems_count = 0
         while True:
+            check_connection(driver)
             try:     
                 popup_text = check_popups(driver)
                 if popup_text:
@@ -385,6 +388,7 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
                     break
 
                 for index, button in enumerate(add_dialogs):
+                    check_connection(driver)
                     try:
                         button_container = button.find_element(By.XPATH, ".//ancestor::div[@aria-label=\"Добавить в альбом\"]")
                         WebDriverWait(driver, 500).until(lambda x: button_container.get_attribute("aria-disabled") != "true" or button_container.get_attribute("aria-disabled") is None)
@@ -421,12 +425,14 @@ def upload_to_album(driver: WebDriver, album_id: int, files: list[str]):
         print("Сохранение списка фото успешно, идем за новым списком")
         break
 
+    check_connection(driver)
     submit_button = driver.find_element(By.XPATH, "//*[text()='К альбому' or text()='Сохранить']")
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='К альбому' or @aria-label='Сохранить']")
 
     #todo найти проект образец и перестроить архитектуру
 
     while True:
+        check_connection(driver)
         sleep(1)
         try:
             if submit_label.get_attribute('aria-disabled'):
@@ -489,11 +495,15 @@ def create_album(driver: WebDriver, album_name, files: list[str]):
     """
     print(inspect.currentframe().f_code.co_name.replace("_", " "))
     global index_file, index_to_album
+
+    check_connection(driver)
     driver.get(home + "media/set/create")
 
+    check_connection(driver)
     files_input = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
     set_files_to_field(files_input, files)
 
+    check_connection(driver)
     elem = driver.find_element(By.XPATH, "//input[@type='text']")
     elem.send_keys(album_name)
     print(f"Название альбома: {album_name}")
@@ -501,12 +511,14 @@ def create_album(driver: WebDriver, album_name, files: list[str]):
     # @todo релоад стрницы, если есть подозрение что страница зависла или не прогрузилась
     
     # Дождаться загрузки файлов и нажать кнопку создания альбома
+    check_connection(driver)
     submit_button = driver.find_element(By.XPATH, "//*[text()='Отправить']")
     submit_label = driver.find_element(By.XPATH, "//*[@aria-label='Отправить']")
 
     retry_count = 0
     popup_count = 0
     while True:
+        check_connection(driver)
         popup_text = check_popups(driver)
         if popup_text:
             print(f"Обнаружен попап {popup_text}")
@@ -554,6 +566,7 @@ def create_album(driver: WebDriver, album_name, files: list[str]):
 
         break
 
+    check_connection(driver)
     wait = WebDriverWait(driver, 100)
     wait.until(lambda x: driver.current_url.find('&set=') != -1) # ожидание когда завершится перенаправление на страницу созданного альбома
 
@@ -571,8 +584,10 @@ def set_album_confidentiality(driver: WebDriver, album_id: int):
     :param album_id:
     """
 
+    check_connection(driver)
     problems_count = 0
     while True:
+        check_connection(driver)
         popup_text = check_popups(driver)
         if popup_text:
             print(f"Обнаружен попап {popup_text}")
@@ -582,6 +597,7 @@ def set_album_confidentiality(driver: WebDriver, album_id: int):
         else:
             break
     
+    check_connection(driver)
     print('Настройка видимости альбома')
     driver.get(f"{home}media/set/edit/a.{album_id}")
     button = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[contains(@aria-label,'Изменить конфиденциальность.')]")))
@@ -867,6 +883,20 @@ def wait_for_element(driver: WebDriver, by: str, timeout: int = 1) -> None:
             continue
         break
 
+def check_connection(driver: WebDriver):
+    """
+    распознавать сообщение об отсуствии интернета и ставить процесс на паузу
+    """
+    while True:
+        if connection_status == False:
+            try:
+                WebDriverWait(driver, 500).until(lambda x: connection_status == True)
+            except TimeoutException:
+                continue    
+            break
+        break
+
+
 def main():
     global index_file, folder, size_all_files, count_all_files, album_id
     # todo проверка если куки истекли, но по факту авторизаци с ними произошал успешно
@@ -925,7 +955,7 @@ def main():
             add_trusted_device(driver)
         save_cookies(driver, cookie_filename)
 
-    print('refresh')
+
     driver.refresh()
 
     #todo пройтись по структуре папок и собрать папки на аплоад и создание альбомов
@@ -1042,11 +1072,19 @@ class Watcher:
     problems_count = 0
 
     def __init__(self, driver):
-        t = Thread(target=self.run, args=(driver,))
+        t = Thread(target=self.check_page_unavailable, args=(driver,))
         t.daemon = True
         t.start()
 
-    def run(self, driver):
+        t2 = Thread(target=self.check_connection_lost, args=(driver,))
+        t2.daemon = True
+        t2.start()
+
+        t3 = Thread(target=self.check_connection_stable, args=(driver,))
+        t3.daemon = True
+        t3.start()
+
+    def check_page_unavailable(self, driver):
         while True:
             try: 
                 element = WebDriverWait(driver, 100).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Страница сейчас недоступна']")))
@@ -1056,6 +1094,29 @@ class Watcher:
                 driver.refresh()
             except TimeoutException:
                 self.problems_count = 0
+                pass
+    
+    def check_connection_lost(self, driver):
+        global connection_status
+        while True:
+            try: 
+                element = WebDriverWait(driver, 1000).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Вы офлайн.']")))
+                if connection_status == True:
+                    print(f'Watcher: обнаружено сообщение {element.text}')
+                    print('Watcher: соединение потеряно')
+                    connection_status = False
+            except WebDriverException:
+                pass
+    
+    def check_connection_stable(self, driver):
+        global connection_status
+        while True:
+            try: 
+                element = WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Вы офлайн.']")))
+                if connection_status == False:
+                    print('Watcher: соединение восстановлено')
+                    connection_status = True
+            except WebDriverException:
                 pass
 
 if __name__ == '__main__':
