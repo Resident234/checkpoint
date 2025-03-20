@@ -172,35 +172,35 @@ def check_page(driver: WebDriver, page: str) -> str | bool:
     match page:
         case 'captcha': # страница запроса капчи
             try:
-                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
+                WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Введите символы, которые вы видите']")))
             except WebDriverException:
                 return False
             return True
 
         case 'index':
             try:
-                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[@aria-label='Ваш профиль']")))
-            except WebDriverException:
+                WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//*[@aria-label='Ваш профиль']")))
+            except WebDriverException as e:
                 return False
             return True
 
         case 'login':
             try:
-                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Недавние входы']"))) # or
+                WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Недавние входы']"))) # or
             except WebDriverException:
                 return False
             return True
 
         case 'two_step_verification':
             try:
-                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
+                WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
             except WebDriverException:
                 return False
             return True
 
         case 'add_trusted_device':
             try:
-                WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
+                WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве']")))
             except WebDriverException:
                 return False
             return True
@@ -924,12 +924,13 @@ def main():
 
     is_authorized = False
     # todo после сокрытия попапа "Что произошло" паузу не делать
- 
+    
     if add_cookies(driver, cookie_filename):
         driver.get(home)
-        driver.refresh()
-        is_authorized = check_page(driver, 'index')
-
+        
+    driver.refresh()
+    is_authorized = check_page(driver, 'index')
+    
     if renew_cookie or not is_authorized:
         if check_page(driver, 'login'):
             login(driver, usr, pwd)
