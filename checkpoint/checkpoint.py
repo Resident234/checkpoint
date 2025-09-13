@@ -1,4 +1,5 @@
 import sys
+from time import sleep
 
 
 def main():
@@ -8,11 +9,11 @@ def main():
         print(f'Your current Python version : {version.major}.{version.minor}.{version.micro}')
         sys.exit(1)
 
-    #from checkpoint.cli import parse_and_run
+    from checkpoint.cli import parse_and_run
     from checkpoint.helpers.banner import show_banner
     from checkpoint.helpers.utils import show_version
 
     show_banner()
     show_version()
     print()
-    #parse_and_run()
+    parse_and_run()

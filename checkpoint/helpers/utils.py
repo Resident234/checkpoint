@@ -9,6 +9,7 @@ from copy import deepcopy
 import jsonpickle
 import json
 from packaging.version import parse as parse_version
+from functools import wraps
 
 import httpx
 import imagehash
@@ -16,15 +17,31 @@ from io import BytesIO
 
 from checkpoint import globals as gb
 from checkpoint import version as current_version
-from checkpoint.lib.httpx import AsyncClient
+from selenium.webdriver.chrome.webdriver import WebDriver
+
+from checkpoint.objects.driver import DriverManager
 
 
-def get_httpx_client() -> httpx.AsyncClient:
+def get_driver_manager(is_headless: bool) -> DriverManager:
     """
-        Returns a customized to better support the needs of GHunt CLI users.
+    Creates and returns a configured WebDriver instance for browser automation.
+
+    Args:
+        is_headless (bool): If True, runs browser in headless mode without GUI.
+                           If False, runs browser with visible GUI.
+
+    Returns:
+        WebDriver: Configured Selenium WebDriver instance ready for automation.
     """
-    return AsyncClient(http2=True, timeout=15)
-    # return AsyncClient(http2=True, timeout=15, proxies="http://127.0.0.1:8282", verify=False)
+    return DriverManager(is_headless=is_headless)
+
+def print_function_name(func):#todo еще данные с параметров тоже выводить
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        function_name = func.__name__.replace("_", " ").capitalize()
+        print(function_name)  # Print function name
+        return func(*args, **kwargs)
+    return wrapper
 
 def oprint(obj: any) -> str:
     serialized = jsonpickle.encode(obj)
