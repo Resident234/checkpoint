@@ -1,19 +1,12 @@
-from time import sleep
-import os
 from pathlib import Path
+from time import sleep
 
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-import re
 
 from checkpoint import globals as gb
-
 from checkpoint.helpers.pages import check_page
-
-
 
 
 async def run(driver: WebDriver = None):
