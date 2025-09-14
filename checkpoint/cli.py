@@ -24,10 +24,8 @@ def parse_and_run():
     parser_login = subparsers.add_parser('login', help="Authenticate CheckPoint to FB.", formatter_class=RichHelpFormatter)
     parser_login.add_argument('--renewcookie', action='store_true', help="Force renew cookie")
 
-    ### Email module
-    parser_email = subparsers.add_parser('email', help="Get information on an email address.", formatter_class=RichHelpFormatter)
-    parser_email.add_argument("email_address")
-    parser_email.add_argument('--json', type=Path, help="File to write the JSON output to.")
+    ### Disabled module
+    parser_disabled = subparsers.add_parser('disabled', help="Download account backup.", formatter_class=RichHelpFormatter)
 
     ### Gaia module
     parser_gaia = subparsers.add_parser('gaia', help="Get information on a Gaia ID.", formatter_class=RichHelpFormatter)
@@ -86,29 +84,28 @@ def process_args(args: argparse.Namespace):
     match args.module:
         case "none": #Для отладки
             pass
-    """
         case "disabled":
             from checkpoint.modules import disabled
-            asyncio.run(login.check_and_login(None, args.clean))
-            asyncio.run(disabled.hunt(None, args.email_address, args.json))
-        case "email":
-            from ghunt.modules import email
-            asyncio.run(email.hunt(None, args.email_address, args.json))
-        case "gaia":
-            from ghunt.modules import gaia
-            asyncio.run(gaia.hunt(None, args.gaia_id, args.json))
-        case "drive":
-            from ghunt.modules import drive
-            asyncio.run(drive.hunt(None, args.file_id, args.json))
-        case "geolocate":
-            from ghunt.modules import geolocate
-            asyncio.run(geolocate.main(None, args.bssid, args.file, args.json))
-        case "spiderdal":
-            if any([args.package, args.fingerprint]) and not all([args.package, args.fingerprint]):
-                exit("[!] You must provide both a package name and a certificate fingerprint.")
-            from ghunt.modules import spiderdal
-            asyncio.run(spiderdal.main(args.url, args.package, args.fingerprint, args.strict, args.json))
-    """
+            asyncio.run(disabled.run(driver))
+    """    
+    case "email":
+        from ghunt.modules import email
+        asyncio.run(email.hunt(None, args.email_address, args.json))
+    case "gaia":
+        from ghunt.modules import gaia
+        asyncio.run(gaia.hunt(None, args.gaia_id, args.json))
+    case "drive":
+        from ghunt.modules import drive
+        asyncio.run(drive.hunt(None, args.file_id, args.json))
+    case "geolocate":
+        from ghunt.modules import geolocate
+        asyncio.run(geolocate.main(None, args.bssid, args.file, args.json))
+    case "spiderdal":
+        if any([args.package, args.fingerprint]) and not all([args.package, args.fingerprint]):
+            exit("[!] You must provide both a package name and a certificate fingerprint.")
+        from ghunt.modules import spiderdal
+        asyncio.run(spiderdal.main(args.url, args.package, args.fingerprint, args.strict, args.json))
+"""
 
     sleep(20)
     driver_manager.close()

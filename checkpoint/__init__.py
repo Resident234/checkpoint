@@ -1,0 +1,1 @@
+from checkpoint import globals as gb; gb.init_globals()

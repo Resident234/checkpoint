@@ -27,7 +27,7 @@ async def check_and_login(driver: WebDriver = None, renewcookie: bool=False) -> 
         exit()
 
     try:
-        checkpoint_creds = await auth.load_and_auth(driver, renew=renewcookie, help=False)
+        checkpoint_creds = await auth.load_and_auth(driver, renew=renewcookie)
     except CheckPointInvalidSession as e:
         print(f"[-] {e}\n")
 
