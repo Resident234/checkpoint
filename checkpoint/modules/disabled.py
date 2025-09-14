@@ -28,26 +28,29 @@ async def run(driver: WebDriver = None):
         return False
     
     gb.rc.print(f"📁 Файлы будут сохраняться в: {download_folder}", style="blue")
+    allowed_pages = ['disabled_account', 'download_account', 'creation_backup_is_processing', 'login', 'download_ready']
 
     while True:
 
-        if check_page(driver, 'disabled_account'):
+        if 'disabled_account' in allowed_pages and check_page(driver, 'disabled_account'):
             button = driver.find_element(By.XPATH, "//*[text()='Скачать информацию']")
             if button:
                 button.click()
+                allowed_pages.append('download_ready')
 
-        if check_page(driver, 'download_account'):
+        if 'download_account' in allowed_pages and check_page(driver, 'download_account'):
             button = driver.find_element(By.XPATH, "//*[text()='Запросить файл']")
             if button:
                 button.click()
+                allowed_pages.append('download_ready')
 
-        if check_page(driver, 'creation_backup_is_processing'): #todo вывод в консоль текущего теста со страницы
+        if 'creation_backup_is_processing' in allowed_pages and check_page(driver, 'creation_backup_is_processing'): #todo вывод в консоль текущего теста со страницы
             sleep(100)
 
-        if check_page(driver, 'login'):
+        if 'login' in allowed_pages and check_page(driver, 'login'):
             return False
 
-        if check_page(driver, 'download_ready'):
+        if 'download_ready' in allowed_pages and check_page(driver, 'download_ready'):
             # Поиск всех кнопок с текстом "Скачать * файлов из *"
             try:
                 download_buttons = driver.find_elements(
@@ -81,10 +84,10 @@ async def run(driver: WebDriver = None):
                         except Exception as e:
                             gb.rc.print(f"❌ Ошибка при нажатии кнопки {i}: {e}", style="red")
                             continue
-                    
-                    # Ждем завершения всех скачиваний
+
+                    allowed_pages.remove('download_ready')
+
                     gb.rc.print("⏳ Ожидаем завершения всех скачиваний...", style="yellow")
-                    # Пауза в 6 часов после завершения скачиваний
                     gb.rc.print("😴 Пауза на 6 часов после завершения скачиваний...", style="magenta")
                     sleep(21600)  # 6 часов = 21600 секунд
                     gb.rc.print("⏰ Пауза завершена, продолжаем работу", style="green")
