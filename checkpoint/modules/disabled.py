@@ -5,19 +5,23 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 
+from checkpoint import config
 from checkpoint import globals as gb
 from checkpoint.helpers.pages import check_page
 
 
-async def run(driver: WebDriver = None):
+async def run(driver: WebDriver = None, download_path: str = None):
     gb.rc.print("\n🗺️ Disabled account page", style="green4")
-    
-    # Настройка папки для скачивания на диске H:\
-    download_folder = Path("H:\\")
-    
-    # Проверяем, существует ли диск H:\
+
+    # Настройка папки для скачивания
+    if download_path is None:
+        download_path = config.DOWNLOAD_PATH
+
+    download_folder = Path(download_path)
+
+    # Проверяем, существует ли указанная папка
     if not download_folder.exists():
-        gb.rc.print("❌ Диск H:\ недоступен!", style="red")
+        gb.rc.print(f"❌ Папка {download_folder} недоступна!", style="red")
         return False
     
     gb.rc.print(f"📁 Файлы будут сохраняться в: {download_folder}", style="blue")
