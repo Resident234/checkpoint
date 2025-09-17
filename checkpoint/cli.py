@@ -26,6 +26,12 @@ def parse_and_run():
 
     ### Disabled module
     parser_disabled = subparsers.add_parser('disabled', help="Download account backup.", formatter_class=RichHelpFormatter)
+    parser_disabled.add_argument(
+        '--downloadpath',
+        type=str,
+        default="H:\\",
+        help='Путь к папке для скачивания файлов (по умолчанию: H:\\)'
+    )
 
     ### Gaia module
     parser_gaia = subparsers.add_parser('gaia', help="Get information on a Gaia ID.", formatter_class=RichHelpFormatter)
@@ -80,32 +86,12 @@ def process_args(args: argparse.Namespace):
     from checkpoint.modules import login
     asyncio.run(login.check_and_login(driver, args.renewcookie))
 
-
     match args.module:
         case "none": #Для отладки
             pass
         case "disabled":
             from checkpoint.modules import disabled
-            asyncio.run(disabled.run(driver))
-    """    
-    case "email":
-        from ghunt.modules import email
-        asyncio.run(email.hunt(None, args.email_address, args.json))
-    case "gaia":
-        from ghunt.modules import gaia
-        asyncio.run(gaia.hunt(None, args.gaia_id, args.json))
-    case "drive":
-        from ghunt.modules import drive
-        asyncio.run(drive.hunt(None, args.file_id, args.json))
-    case "geolocate":
-        from ghunt.modules import geolocate
-        asyncio.run(geolocate.main(None, args.bssid, args.file, args.json))
-    case "spiderdal":
-        if any([args.package, args.fingerprint]) and not all([args.package, args.fingerprint]):
-            exit("[!] You must provide both a package name and a certificate fingerprint.")
-        from ghunt.modules import spiderdal
-        asyncio.run(spiderdal.main(args.url, args.package, args.fingerprint, args.strict, args.json))
-"""
+            asyncio.run(disabled.run(driver, args.downloadpath))
 
     sleep(20)
     driver_manager.close()
