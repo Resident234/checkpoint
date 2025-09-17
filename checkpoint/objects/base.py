@@ -1,17 +1,13 @@
 import pickle
 from typing import *
 from pathlib import Path
-import json
-from dateutil.relativedelta import relativedelta
 from datetime import datetime
-import base64
 
-from autoslot import Slots
+
 from threading import Thread
 
 from selenium.common import InvalidCookieDomainException
 
-from checkpoint.errors import CheckPointInvalidSession
 
 
 # class SmartObj(Slots): # Not Python 3.13 compatible so FUCK it fr fr
