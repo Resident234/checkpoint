@@ -56,9 +56,6 @@ def chunkify(lst, n):
     for i in range(n):
         yield lst[i*k+min(i, m):(i+1)*k+min(i+1, m)]
 
-def within_docker() -> bool:
-    return Path('/.dockerenv').is_file()
-
 def gen_sapisidhash(sapisid: str, origin: str, timestamp: str = str(int(time()))) -> str:
     return f"{timestamp}_{hashlib.sha1(' '.join([timestamp, sapisid, origin]).encode()).hexdigest()}"
 
