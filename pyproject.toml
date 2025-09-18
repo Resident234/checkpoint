@@ -1,0 +1,65 @@
+[project]
+name = "checkpoint"
+version = "2.0.0"
+authors = [
+    {name = "Resident234", email = "gsu1234@mail.ru"},
+]
+description = "."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "AGPL-3.0"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dynamic = ["dependencies"]
+keywords=["facebook"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.poetry.scripts]
+checkpoint = "checkpoint.checkpoint:main"
+
+[tool.setuptools.packages.find]
+include = ["checkpoint", "checkpoint.*"]
+
+[project.urls]
+"Homepage" = "https://github.com/Resident234/checkpoint"
+"Bug Reports" = "https://github.com/Resident234/checkpoint/issues"
+"Funding" = "https://github.com/sponsors/Resident234"
+"Source" = "https://github.com/Resident234/checkpoint"
+
+[tool.poetry]
+name = "checkpoint"
+version = "2.0.0"
+description = "An offensive Google framework."
+authors = ["Resident234 <gsu1234@mail.ru>"]
+license = "AGPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+geopy = "^2.4.1"
+httpx = {extras = ["http2"], version = "^0.27.2"}
+imagehash = "^4.3.1"
+pillow = "^10.4.0"
+python-dateutil = "^2.9.0.post0"
+rich = "^13.9.1"
+beautifultable = "^1.1.0"
+beautifulsoup4 = "^4.12.3"
+alive-progress = "^3.1.5"
+protobuf = "^5.28.2"
+autoslot = "^2022.12.1"
+humanize = "^4.10.0"
+inflection = "^0.5.1"
+jsonpickle = "^3.3.0"
+packaging = "^24.1"
+rich-argparse = "^1.5.2"
+selenium = "^4.35.0"
+pydub = "^0.25.1"
+speechrecognition = "^3.14.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
