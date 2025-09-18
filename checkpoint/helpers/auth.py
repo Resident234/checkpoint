@@ -1,5 +1,13 @@
 import sys
+import json
+import re
+import threading
+import time
+from pathlib import Path
+from time import sleep
 
+import httpx
+from bs4 import BeautifulSoup
 from selenium.common import NoSuchElementException
 from selenium.webdriver import Keys
 
@@ -8,6 +16,7 @@ from checkpoint.errors import *
 from checkpoint.helpers.captha import *
 from checkpoint.helpers.pages import *
 from checkpoint.helpers.utils import *
+from checkpoint.knowledge import external
 from checkpoint.knowledge.pages import urls
 from checkpoint.objects.base import CheckPointCreds, Inp
 
@@ -95,23 +104,131 @@ def login(driver: WebDriver, usr, pwd):
 @print_function_name
 def two_step_verification_wait(driver: WebDriver): #todo неправильный ввод обрабатывать
     """
-    бесконечное ожидание, пока я вход на телефоне не подтвержу
+    Бесконечное ожидание, пока я вход на телефоне не подтвержу
+    Параллельно парсит код с сайта и ожидает ввод в консоль
     :param driver:
     """
     title = driver.find_element(By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")
-    inp = Inp(f'{title.text} и введите код: ').get()
+    
+    # Общие переменные для потоков
+    inp = None
+    threads_stop_event = threading.Event()
+    json_file_path = Path("verification_code.json")
+    
+    def parse_code():
+        """Поток для парсинга кода с сайта"""
+        nonlocal inp
+        last_code = None
+        
+        # Читаем сохраненный код из JSON файла
+        if json_file_path.exists():
+            try:
+                with open(json_file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    last_code = data.get('code')
+            except (json.JSONDecodeError, KeyError):
+                pass
+        
+        while not threads_stop_event.is_set():
+            try:
+                # Отправляем HTTP запрос к странице
+                with httpx.Client(timeout=10) as client:
+                    response = client.get(external.urls['habr_career_url'])
+                    response.raise_for_status()
+                
+                # Парсим HTML
+                soup = BeautifulSoup(response.text, 'html.parser')
+                meta_element = soup.find(class_=external.html['meta_selector'])
+                
+                if meta_element:
+                    text = meta_element.get_text(strip=True)
+                    print(f"[DEBUG] Найденный текст: {text}")
+                    
+                    # Извлекаем 6-значное число
+                    code_match = re.search(r'\b\d{6}\b', text)
+                    if code_match:
+                        current_code = code_match.group()
+                        print(f"[DEBUG] Извлеченный код: {current_code}")
+                        
+                        # Сравниваем с предыдущим кодом
+                        if current_code != last_code:
+                            print(f"[INFO] Новый код найден: {current_code}")
+                            inp = current_code
+                            
+                            # Сохраняем код в JSON файл
+                            with open(json_file_path, 'w', encoding='utf-8') as f:
+                                json.dump({'code': current_code}, f, ensure_ascii=False, indent=2)
+                            
+                            # Завершаем поток
+                            threads_stop_event.set()
+                            return
+                        else:
+                            print(f"[DEBUG] Код не изменился: {current_code}")
+                    else:
+                        print("[DEBUG] 6-значный код не найден в тексте")
+                else:
+                    print(f"[DEBUG] Элемент с классом {external.html['meta_selector']} не найден")
+                    
+            except Exception as e:
+                print(f"[ERROR] Ошибка при парсинге: {e}")
+            
+            # Пауза перед следующей попыткой
+            if not threads_stop_event.wait(10):  # Ждем 10 секунд или до сигнала остановки
+                continue
+            else:
+                break
+    
+    def console_input():
+        """Поток для ввода кода в консоль"""
+        nonlocal inp
+        try:
+            user_input = Inp(f'{title.text} и введите код: ').get()
+            if user_input:
+                print(f'Ввод принят: {user_input}')
+                inp = user_input
+                threads_stop_event.set()
+        except Exception as e:
+            print(f"[ERROR] Ошибка при вводе в консоль: {e}")
+            threads_stop_event.set()
+    
+    # Запускаем оба потока
+    habr_thread = threading.Thread(target=parse_code, daemon=True)
+    console_thread = threading.Thread(target=console_input, daemon=True)
+    
+    habr_thread.start()
+    console_thread.start()
+    
+    # Ждем завершения одного из потоков
+    while not threads_stop_event.is_set():
+        sleep(0.2)
+    
+    # Принудительно завершаем оставшийся поток
+    threads_stop_event.set()
+    
+    # Ждем завершения потоков
+    habr_thread.join(timeout=1)
+    console_thread.join(timeout=1)
+    
     if inp:
-        print(f'Ввод принят: {inp}')
+        print(f'Код для ввода: {inp}')
         elem = driver.find_element(By.XPATH, "//input[@type='text']")
         elem.send_keys(inp)
         sleep(1)
         submit_button = driver.find_element(By.XPATH, "//*[text()='Продолжить']")
         submit_button.click()
+    else:
+        print("[ERROR] Код не был получен ни из одного источника")
+        driver.close()
+        sys.exit('Код из уведомления не был введен')
+    
     try:
-        WebDriverWait(driver, 1000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
+        WebDriverWait(driver, 10000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
     except WebDriverException:
         driver.close()
         sys.exit('Код из уведомления не был введен')
+
+    
+    
 
 @print_function_name
 def add_trusted_device(driver: WebDriver):
