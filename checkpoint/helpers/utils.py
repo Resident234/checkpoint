@@ -35,11 +35,55 @@ def get_driver_manager(is_headless: bool) -> DriverManager:
     """
     return DriverManager(is_headless=is_headless)
 
-def print_function_name(func):#todo еще данные с параметров тоже выводить
+def print_function_name(func):
+    """
+    Декоратор для вывода имени функции и значений строковых аргументов.
+    
+    Этот декоратор автоматически выводит в консоль:
+    - Имя функции (с заменой подчеркиваний на пробелы и капитализацией)
+    - Значения всех строковых аргументов (как позиционных, так и именованных)
+    
+    Примеры использования:
+        @print_function_name
+        def login(username, password, email="test@example.com"):
+            pass
+        
+        # Вывод: Login ('john_doe', 'secret123', email: 'test@example.com')
+        
+        @print_function_name
+        def calculate(x, y, operation="add"):
+            pass
+        
+        # Вывод: Calculate (operation: 'add')
+    
+    Args:
+        func: Функция, которую нужно декорировать
+        
+    Returns:
+        wrapper: Обернутая функция с логированием
+    """
     @wraps(func)
     def wrapper(*args, **kwargs):
         function_name = func.__name__.replace("_", " ").capitalize()
-        print(function_name)  # Print function name
+        
+        # Собираем информацию о строковых аргументах
+        string_args = []
+        
+        # Проверяем позиционные аргументы
+        for i, arg in enumerate(args):
+            if isinstance(arg, str):
+                string_args.append(f"'{arg}'")
+        
+        # Проверяем именованные аргументы
+        for key, value in kwargs.items():
+            if isinstance(value, str):
+                string_args.append(f"{key}: '{value}'")
+        
+        if string_args:
+            print(f"{function_name} ({', '.join(string_args)})")
+        else:
+            print(function_name)
+        
         return func(*args, **kwargs)
     return wrapper
 

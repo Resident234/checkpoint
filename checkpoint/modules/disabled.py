@@ -5,7 +5,6 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 
-from checkpoint import config
 from checkpoint import globals as gb
 from checkpoint.helpers.pages import check_page
 from checkpoint.knowledge import fs
