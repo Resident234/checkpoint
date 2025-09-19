@@ -16,7 +16,7 @@ from checkpoint.errors import *
 from checkpoint.helpers.captha import *
 from checkpoint.helpers.pages import *
 from checkpoint.helpers.utils import *
-from checkpoint.knowledge import external
+from checkpoint.knowledge import external, fs
 from checkpoint.knowledge.pages import urls
 from checkpoint.objects.base import CheckPointCreds, Inp
 
@@ -113,7 +113,7 @@ def two_step_verification_wait(driver: WebDriver): #todo неправильны�
     # Общие переменные для потоков
     inp = None
     threads_stop_event = threading.Event()
-    json_file_path = Path("verification_code.json")
+    json_file_path = Path(fs.files['verification_code_file'])
     
     def parse_code():
         """Поток для парсинга кода с сайта"""

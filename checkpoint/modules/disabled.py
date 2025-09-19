@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from checkpoint import config
 from checkpoint import globals as gb
 from checkpoint.helpers.pages import check_page
+from checkpoint.knowledge import fs
 
 
 async def run(driver: WebDriver = None, download_path: str = None):
@@ -15,7 +16,7 @@ async def run(driver: WebDriver = None, download_path: str = None):
 
     # Настройка папки для скачивания
     if download_path is None:
-        download_path = config.DOWNLOAD_PATH
+        download_path = fs.path['download_path']
 
     download_folder = Path(download_path)
 
