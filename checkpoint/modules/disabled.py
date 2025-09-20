@@ -6,8 +6,9 @@ from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 
 from checkpoint import globals as gb
-from checkpoint.helpers.pages import check_page
+from checkpoint.helpers.pages import check_page, load_allowed_pages, save_allowed_pages
 from checkpoint.knowledge import fs
+
 
 
 async def run(driver: WebDriver = None, download_path: str = None):
@@ -25,7 +26,9 @@ async def run(driver: WebDriver = None, download_path: str = None):
         return False
     
     gb.rc.print(f"📁 Файлы будут сохраняться в: {download_folder}", style="blue")
-    allowed_pages = ['disabled_account', 'download_account', 'creation_backup_is_processing', 'login', 'download_ready']
+    
+    # Загружаем allowed_pages из JSON файла или используем значения по умолчанию
+    allowed_pages = load_allowed_pages()
 
     while True:
 
@@ -33,7 +36,6 @@ async def run(driver: WebDriver = None, download_path: str = None):
             button = driver.find_element(By.XPATH, "//*[text()='Скачать информацию']")
             if button:
                 button.click()
-                allowed_pages.append('download_ready')
 
         if 'download_account' in allowed_pages and check_page(driver, 'download_account'):
             button = driver.find_element(By.XPATH, "//*[text()='Запросить файл']")
@@ -92,4 +94,7 @@ async def run(driver: WebDriver = None, download_path: str = None):
             except NoSuchElementException:
                 pass
 
+        # Сохраняем текущее состояние allowed_pages в конце каждого оборота цикла
+        save_allowed_pages(allowed_pages)
+        
         driver.refresh()
