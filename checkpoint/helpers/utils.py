@@ -200,7 +200,7 @@ def show_version():
         gb.rc.print(f"🤗 Run 'pipx upgrade chekpoint' to update.", style="bold light_pink3")
     else:
         gb.rc.print("🎉 You are up to date !", style="light_pink3")
-        
+
 
 def check_new_version() -> tuple[bool, dict[str, str]]:
     """
@@ -209,7 +209,7 @@ def check_new_version() -> tuple[bool, dict[str, str]]:
     req = httpx.get("https://raw.githubusercontent.com/Resident234/checkpoint/master/checkpoint/version.py")
     if req.status_code != 200:
         return False, {}
-    
+
     raw = req.text.strip().removeprefix("metadata = ")
     data = json.loads(raw)
     new_version = data.get("version", "")
@@ -218,3 +218,39 @@ def check_new_version() -> tuple[bool, dict[str, str]]:
     if parse_version(new_version) > parse_version(current_version.metadata.get("version", "")):
         return True, {"version": new_version, "name": new_name}
     return False, {}
+
+
+def ensure_temp_directory() -> Path:
+    """
+    Создает временную директорию в корневой папке проекта, если она не существует
+    
+    Returns:
+        Path: Путь к временной директории
+    """
+    # Определяем корневую папку проекта (где находится pyproject.toml)
+    current_file = Path(__file__)
+    project_root = current_file.parent.parent.parent  # checkpoint/helpers/utils.py -> CheckPoint/
+    
+    # Создаем временную директорию
+    temp_dir = project_root / "temp"
+    
+    if not temp_dir.exists():
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        gb.rc.print(f"📁 Создана временная директория: {temp_dir}", style="blue")
+    
+    return temp_dir
+
+
+def get_temp_path(filename: str) -> Path:
+    """
+    Возвращает путь к файлу во временной директории проекта
+    
+    Args:
+        filename: Имя файла
+        
+    Returns:
+        Path: Полный путь к файлу во временной директории
+    """
+    temp_dir = ensure_temp_directory()
+    return temp_dir / filename
+

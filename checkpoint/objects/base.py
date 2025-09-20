@@ -7,6 +7,7 @@ from datetime import datetime
 from threading import Thread
 
 from selenium.common import InvalidCookieDomainException
+from checkpoint.helpers.temp_dir import get_temp_path
 
 
 
@@ -41,11 +42,8 @@ class CheckPointCreds(SmartObj):
         self.cookies: Dict[str, str] = {}
 
         if not creds_path:
-            cwd_path = Path().home()
-            ghunt_folder = cwd_path / ".malfrats/checkpoint"
-            if not ghunt_folder.is_dir():
-                ghunt_folder.mkdir(parents=True, exist_ok=True)
-            creds_path = ghunt_folder / "creds.pkl"
+            # Use temporary directory instead of home directory
+            creds_path = get_temp_path("creds.pkl")
         self.creds_path: str = creds_path
 
     def are_creds_loaded(self) -> bool:

@@ -9,6 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from checkpoint import globals as gb
 from checkpoint.helpers.utils import print_function_name
+from checkpoint.helpers.temp_dir import get_temp_path
 from checkpoint.knowledge import fs, pages
 
 WAIT_TIMEOUT = 3
@@ -93,7 +94,7 @@ def check_page(driver: WebDriver, page: str) -> str | bool:
 
 def load_allowed_pages():
     """Загружает allowed_pages из JSON файла или возвращает значения по умолчанию"""
-    json_file_path = Path(fs.files['allowed_pages_file'])
+    json_file_path = get_temp_path(fs.files['allowed_pages_file'])
     
     if json_file_path.exists():
         try:
@@ -113,7 +114,7 @@ def load_allowed_pages():
 
 def save_allowed_pages(allowed_pages):
     """Сохраняет allowed_pages в JSON файл"""
-    json_file_path = Path(fs.files['allowed_pages_file'])
+    json_file_path = get_temp_path(fs.files['allowed_pages_file'])
     
     try:
         data = {'allowed_pages': allowed_pages}

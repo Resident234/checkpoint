@@ -13,6 +13,7 @@ from selenium.webdriver import Keys
 
 from checkpoint import config
 from checkpoint.errors import *
+from checkpoint.helpers.temp_dir import get_temp_path
 from checkpoint.helpers.captha import *
 from checkpoint.helpers.pages import *
 from checkpoint.helpers.utils import *
@@ -113,7 +114,7 @@ def two_step_verification_wait(driver: WebDriver): #todo неправильны�
     # Общие переменные для потоков
     inp = None
     threads_stop_event = threading.Event()
-    json_file_path = Path(fs.files['verification_code_file'])
+    json_file_path = get_temp_path(fs.files['verification_code_file'])
     
     def parse_code():
         """Поток для парсинга кода с сайта"""
