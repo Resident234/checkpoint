@@ -17,7 +17,7 @@ from checkpoint.helpers.temp_dir import get_temp_path
 from checkpoint.helpers.captha import *
 from checkpoint.helpers.pages import *
 from checkpoint.helpers.utils import *
-from checkpoint.knowledge import external, fs
+from checkpoint.knowledge import external, fs, pauses
 from checkpoint.knowledge.pages import urls
 from checkpoint.objects.base import CheckPointCreds, Inp
 
@@ -174,7 +174,7 @@ def two_step_verification_wait(driver: WebDriver): #todo неправильны�
                 print(f"[ERROR] Ошибка при парсинге: {e}")
             
             # Пауза перед следующей попыткой
-            if not threads_stop_event.wait(10):  # Ждем 10 секунд или до сигнала остановки
+            if not threads_stop_event.wait(pauses.auth['thread_wait']):  # Ждем или до сигнала остановки
                 continue
             else:
                 break
@@ -201,7 +201,7 @@ def two_step_verification_wait(driver: WebDriver): #todo неправильны�
     
     # Ждем завершения одного из потоков
     while not threads_stop_event.is_set():
-        sleep(0.2)
+        sleep(pauses.auth['thread_check'])
     
     # Принудительно завершаем оставшийся поток
     threads_stop_event.set()
@@ -214,7 +214,6 @@ def two_step_verification_wait(driver: WebDriver): #todo неправильны�
         print(f'Код для ввода: {inp}')
         elem = driver.find_element(By.XPATH, "//input[@type='text']")
         elem.send_keys(inp)
-        sleep(1)
         submit_button = driver.find_element(By.XPATH, "//*[text()='Продолжить']")
         submit_button.click()
     else:
@@ -223,7 +222,7 @@ def two_step_verification_wait(driver: WebDriver): #todo неправильны�
         sys.exit('Код из уведомления не был введен')
     
     try:
-        WebDriverWait(driver, 10000).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
+        WebDriverWait(driver, pauses.webdriver_wait['verification_wait']).until(EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']")))
     except WebDriverException:
         driver.close()
         sys.exit('Код из уведомления не был введен')
@@ -238,7 +237,7 @@ def add_trusted_device(driver: WebDriver):
     :param driver:
     """
     try:
-        button = WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Сделать это устройство доверенным']")))
+        button = WebDriverWait(driver, pauses.webdriver_wait['short_wait']).until(EC.presence_of_element_located((By.XPATH, "//*[text()='Сделать это устройство доверенным']")))
         button.click()
     except NoSuchElementException:
         pass

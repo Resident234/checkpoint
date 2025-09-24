@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from checkpoint.helpers.utils import *
+from checkpoint.knowledge import pauses
 
 
 def parse_and_run():
@@ -93,6 +94,6 @@ def process_args(args: argparse.Namespace):
             from checkpoint.modules import disabled
             asyncio.run(disabled.run(driver, args.downloadpath))
 
-    sleep(20)
+    sleep(pauses.general['final_cleanup'])
     driver_manager.close()
 
