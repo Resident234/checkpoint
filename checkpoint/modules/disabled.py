@@ -7,12 +7,16 @@ from selenium.webdriver.common.by import By
 
 from checkpoint import globals as gb
 from checkpoint.helpers.pages import check_page, load_allowed_pages, save_allowed_pages
+from checkpoint.helpers.email import *
 from checkpoint.knowledge import fs
-
+from checkpoint.modules import login
 
 
 async def run(driver: WebDriver = None, download_path: str = None):
     gb.rc.print("\n🗺️ Disabled account page", style="green4")
+
+    # Отправляем уведомление о запуске модуля
+    send_module_start_notification("gsu1234@mail.ru", "Disabled Account Page")
 
     # Настройка папки для скачивания
     if download_path is None:
@@ -42,12 +46,14 @@ async def run(driver: WebDriver = None, download_path: str = None):
             if button:
                 button.click()
                 allowed_pages.append('download_ready')
+                save_allowed_pages(allowed_pages)
 
         if 'creation_backup_is_processing' in allowed_pages and check_page(driver, 'creation_backup_is_processing'): #todo вывод в консоль текущего теста со страницы
             sleep(100)
 
         if 'login' in allowed_pages and check_page(driver, 'login'):
-            return False
+            import asyncio
+            asyncio.run(login.check_and_login(driver))
 
         if 'download_ready' in allowed_pages and check_page(driver, 'download_ready'):
             # Поиск всех кнопок с текстом "Скачать * файлов из *"
@@ -85,16 +91,21 @@ async def run(driver: WebDriver = None, download_path: str = None):
                             continue
 
                     allowed_pages.remove('download_ready')
+                    save_allowed_pages(allowed_pages)
+
+                    gb.rc.print(f"📊 Всего отправлено на скачивание: {len(download_buttons)} файлов", style="blue")
+
+                    # Отправляем уведомление на email
+                    send_download_completion_notification("gsu1234@mail.ru", len(download_buttons))
 
                     gb.rc.print("⏳ Ожидаем завершения всех скачиваний...", style="yellow")
                     gb.rc.print("😴 Пауза на 6 часов после завершения скачиваний...", style="magenta")
                     sleep(21600)  # 6 часов = 21600 секунд
                     gb.rc.print("⏰ Пауза завершена, продолжаем работу", style="green")
 
+
             except NoSuchElementException:
                 pass
 
-        # Сохраняем текущее состояние allowed_pages в конце каждого оборота цикла
-        save_allowed_pages(allowed_pages)
-        
+
         driver.refresh()
