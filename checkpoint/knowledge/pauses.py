@@ -13,7 +13,7 @@ general = {
 
 # Authentication and verification pauses
 auth = {
-    'verification_input': 36000,   # Пауза после ввода кода верификации (10 часов)
+    'verification_input': 3,   # Пауза после ввода кода верификации
     'thread_check': 0.2,       # Проверка состояния потоков
     'thread_wait': 10,         # Ожидание остановки потоков
 }
