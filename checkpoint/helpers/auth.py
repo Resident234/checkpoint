@@ -129,41 +129,6 @@ def _enter_verification_code(driver: WebDriver, inp: str) -> bool:
         return False
 
 @print_function_name
-def _check_verification_errors(driver: WebDriver) -> bool:
-    """
-    Проверяет наличие ошибок неправильного кода верификации
-    :param driver: WebDriver instance
-    :return: True если нужно продолжить (нет ошибок), False если нужно повторить попытку
-    """
-    try:
-        error_messages = [
-            "введенный код для входа не совпадает с кодом, отправленным на телефон",
-            "код неверный",
-            "неправильный код",
-            "код не совпадает",
-            "проверьте номер и повторите попытку"
-        ]
-        
-        error_found = False
-        for error_msg in error_messages:
-            try:
-                error_element = driver.find_element(By.XPATH, f"//*[contains(text(), '{error_msg}')]")
-                if error_element:
-                    print(f"[WARNING] Обнаружена ошибка: {error_msg}")
-                    error_found = True
-                    break
-            except NoSuchElementException:
-                continue
-        
-        if error_found:
-            return False
-        
-        return True  # Нет ошибок, можно продолжать
-        
-    except Exception:
-        return False
-
-@print_function_name
 def _read_saved_code(json_file_path: Path) -> str:
     """
     Читает сохраненный код верификации из JSON файла
@@ -190,11 +155,10 @@ def _save_code_to_json(json_file_path: Path, code: str) -> None:
         json.dump({'code': code}, f, ensure_ascii=False, indent=2)
 
 @print_function_name
-def _check_verification_success(driver: WebDriver, json_file_path: Path, inp: str) -> bool:
+def _check_verification_success(driver: WebDriver, inp: str) -> bool:
     """
     Проверяет, прошла ли верификация успешно
     :param driver: WebDriver instance
-    :param json_file_path: Путь к JSON файлу для сохранения кода
     :param inp: Код верификации
     :param attempt: Текущая попытка
     :param max_attempts: Максимальное количество попыток
@@ -205,14 +169,47 @@ def _check_verification_success(driver: WebDriver, json_file_path: Path, inp: st
             EC.invisibility_of_element_located((By.XPATH, "//*[text()='Проверьте уведомления на другом устройстве' or text()='Проверьте сообщения WhatsApp']"))
         )
 
-        # Сохраняем код в JSON файл
-        _save_code_to_json(json_file_path, inp)
-
         return True
     except WebDriverException:
         return False
                 
     except Exception as e:
+        return False
+
+
+@print_function_name
+def _check_verification_errors(driver: WebDriver) -> bool:
+    """
+    Проверяет наличие ошибок неправильного кода верификации
+    :param driver: WebDriver instance
+    :return: True если нужно продолжить (нет ошибок), False если нужно повторить попытку
+    """
+    try:
+        error_messages = [
+            "введенный код для входа не совпадает с кодом, отправленным на телефон",
+            "код неверный",
+            "неправильный код",
+            "код не совпадает",
+            "проверьте номер и повторите попытку"
+        ]
+
+        error_found = False
+        for error_msg in error_messages:
+            try:
+                error_element = driver.find_element(By.XPATH, f"//*[contains(text(), '{error_msg}')]")
+                if error_element:
+                    print(f"[WARNING] Обнаружена ошибка: {error_msg}")
+                    error_found = True
+                    break
+            except NoSuchElementException:
+                continue
+
+        if error_found:
+            return False
+
+        return True  # Нет ошибок, можно продолжать
+
+    except Exception:
         return False
 
 
@@ -225,10 +222,18 @@ def two_step_verification_wait(driver: WebDriver):
     :param driver:
     """
     max_attempts = retries.auth['max_verification_attempts']
-    attempt = 0
     
-    while attempt < max_attempts:
-        attempt += 1
+    def _verification_attempt(attempt: int) -> bool:
+        """
+        Рекурсивная функция для попыток верификации
+        :param attempt: Номер текущей попытки
+        :return: True если верификация успешна, False если нужно завершить с ошибкой
+        """
+        if attempt > max_attempts:
+            # Все попытки исчерпаны
+            driver.close()
+            sys.exit('[ERROR] Не удалось пройти верификацию после всех попыток')
+        
         print(f"[INFO] Попытка ввода кода: {attempt}/{max_attempts}")
         
         try:
@@ -236,7 +241,7 @@ def two_step_verification_wait(driver: WebDriver):
         except NoSuchElementException:
             # Возможно, мы уже прошли верификацию
             print("[INFO] Элемент верификации не найден, возможно верификация уже пройдена")
-            return
+            return True
         
         # Общие переменные для потоков
         inp = None
@@ -331,15 +336,20 @@ def two_step_verification_wait(driver: WebDriver):
             if attempt >= max_attempts:
                 driver.close()
                 sys.exit('[ERROR] Код из уведомления не был введен после всех попыток')
-            continue
+            # Рекурсивный вызов для следующей попытки
+            return _verification_attempt(attempt + 1)
         
         print(f'Код для ввода: {inp}')
+
+        # Сохраняем код в JSON файл
+        _save_code_to_json(json_file_path, inp)
 
         # Вводим код верификации
         if not _enter_verification_code(driver, inp):
             if attempt < max_attempts:
                 print(f"[INFO] Код введен неудачно. Попытка {attempt + 1} из {max_attempts}")
-                continue
+                # Рекурсивный вызов для следующей попытки
+                return _verification_attempt(attempt + 1)
             else:
                 driver.close()
                 sys.exit('[ERROR] Код введен неудачно слишком много раз')
@@ -351,26 +361,27 @@ def two_step_verification_wait(driver: WebDriver):
         if not _check_verification_errors(driver):
             if attempt < max_attempts:
                 print(f"[INFO] Неправильный код. Попытка {attempt + 1} из {max_attempts}")
-                continue  # Нужно повторить попытку
+                # Рекурсивный вызов для следующей попытки
+                return _verification_attempt(attempt + 1)
             else:
                 driver.close()
                 sys.exit('[ERROR] Неправильный код введен слишком много раз')
         
         # Проверяем, прошла ли верификация успешно
-        if not _check_verification_success(driver, json_file_path, inp):
+        if not _check_verification_success(driver, inp):
             # Если элемент все еще виден, возможно нужна еще одна попытка
             if attempt < max_attempts:
                 print(f"[INFO] Верификация не завершена. Попытка {attempt + 1} из {max_attempts}")
-                continue
+                # Рекурсивный вызов для следующей попытки
+                return _verification_attempt(attempt + 1)
             else:
                 driver.close()
                 sys.exit('[ERROR] Верификация не была завершена')
         else:
             return True
     
-    # Если мы дошли до этого места, значит все попытки исчерпаны
-    driver.close()
-    sys.exit('[ERROR] Не удалось пройти верификацию после всех попыток')
+    # Начинаем рекурсивные попытки с первой попытки
+    return _verification_attempt(1)
 
     
     
