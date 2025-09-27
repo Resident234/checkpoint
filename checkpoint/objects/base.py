@@ -2,9 +2,11 @@ import pickle
 from typing import *
 from pathlib import Path
 from datetime import datetime
+import os
 
 
 from threading import Thread
+from rich.console import Console
 
 from selenium.common import InvalidCookieDomainException
 from checkpoint.helpers.temp_dir import get_temp_path
@@ -123,3 +125,90 @@ class DriveExtractedUser(SmartObj):
         self.email_address: str = ""
         self.role: str = ""
         self.is_last_modifying_user: bool = False
+
+
+class DualConsole:
+    """Console wrapper that outputs to both terminal and log file"""
+    
+    def __init__(self, highlight=True):
+        # Основная консоль для терминала
+        self.console = Console(highlight=highlight)
+        
+        # Создаем директорию для логов
+        self.log_dir = Path("logs")
+        self.log_dir.mkdir(exist_ok=True)
+        
+        # Создаем файл лога с текущей датой и временем
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.log_file_path = self.log_dir / f"checkpoint_{timestamp}.log"
+        
+        # Консоль для файла (без стилей для читаемости)
+        self.log_file = open(self.log_file_path, "w", encoding="utf-8")
+        self.file_console = Console(file=self.log_file, highlight=False, width=120)
+        
+        # Записываем заголовок в лог
+        self._log_header()
+    
+    def _log_header(self):
+        """Записывает заголовок в лог файл"""
+        header = f"""
+{'='*80}
+CheckPoint Application Log
+Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Log file: {self.log_file_path}
+{'='*80}
+"""
+        self.file_console.print(header)
+    
+    def print(self, *args, **kwargs):
+        """Выводит сообщение и в консоль, и в лог файл"""
+        # Вывод в терминал
+        self.console.print(*args, **kwargs)
+        
+        # Вывод в файл с временной меткой
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        if args:
+            # Добавляем временную метку к первому аргументу
+            first_arg = f"[{timestamp}] {args[0]}"
+            file_args = (first_arg,) + args[1:]
+            self.file_console.print(*file_args, **kwargs)
+        else:
+            self.file_console.print(f"[{timestamp}]", **kwargs)
+    
+    def close(self):
+        """Закрывает лог файл"""
+        if hasattr(self, 'log_file') and not self.log_file.closed:
+            self.file_console.print(f"\nLog ended: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            self.log_file.close()
+    
+    def __del__(self):
+        """Автоматически закрывает файл при удалении объекта"""
+        self.close()
+    
+    def get_current_log_path(self):
+        """Возвращает путь к текущему лог-файлу"""
+        return getattr(self, 'log_file_path', None)
+    
+    @staticmethod
+    def cleanup_old_logs(days_to_keep=70):
+        """Удаляет старые лог-файлы
+        
+        Args:
+            days_to_keep (int): Количество дней для хранения логов
+        """
+        log_dir = Path("logs")
+        if not log_dir.exists():
+            return
+        
+        from datetime import timedelta
+        cutoff_date = datetime.now() - timedelta(days=days_to_keep)
+        
+        for log_file in log_dir.glob("checkpoint_*.log"):
+            try:
+                # Получаем время создания файла
+                file_time = datetime.fromtimestamp(log_file.stat().st_ctime)
+                if file_time < cutoff_date:
+                    log_file.unlink()
+                    print(f"Удален старый лог-файл: {log_file}")
+            except Exception as e:
+                print(f"Ошибка при удалении лог-файла {log_file}: {e}")

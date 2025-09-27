@@ -78,20 +78,41 @@ def parse_and_run():
 
 def process_args(args: argparse.Namespace):
     import asyncio
+    from checkpoint import globals as gb
+    
+    # Инициализируем глобальные переменные и систему логирования
+    gb.init_globals()
+    
+    # Очищаем старые логи (старше 70 дней)
+    from checkpoint.objects.base import DualConsole
+    DualConsole.cleanup_old_logs(days_to_keep=70)
+    
+    # Выводим информацию о текущем лог-файле
+    log_path = gb.rc.get_current_log_path()
+    if log_path:
+        gb.rc.print(f"📝 Лог записывается в файл: {log_path}", style="blue")
 
-    driver_manager = get_driver_manager(args.is_headless)
-    driver = driver_manager.get_driver()
+    try:
+        driver_manager = get_driver_manager(args.is_headless)
+        driver = driver_manager.get_driver()
 
-    from checkpoint.modules import login
-    asyncio.run(login.check_and_login(driver, args.renewcookie))
+        from checkpoint.modules import login
+        asyncio.run(login.check_and_login(driver, args.renewcookie))
 
-    match args.module:
-        case "none": #Для отладки
-            pass
-        case "disabled":
-            from checkpoint.modules import disabled
-            asyncio.run(disabled.run(driver, args.downloadpath))
+        match args.module:
+            case "none": #Для отладки
+                pass
+            case "disabled":
+                from checkpoint.modules import disabled
+                asyncio.run(disabled.run(driver, args.downloadpath))
 
-    sleep(pauses.general['final_cleanup'], "Финальная очистка перед закрытием")
-    driver_manager.close()
+        sleep(pauses.general['final_cleanup'], "Финальная очистка перед закрытием")
+        driver_manager.close()
+
+    except Exception as e:
+        gb.rc.print(f"❌ Критическая ошибка: {e}", style="red")
+        raise
+    finally:
+        # Корректно завершаем работу с системой логирования
+        gb.cleanup_globals()
 
