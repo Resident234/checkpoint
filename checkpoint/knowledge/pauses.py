@@ -20,7 +20,7 @@ auth = {
 
 # Download and backup pauses
 download = {
-    'button_click': 1,         # Пауза после клика по кнопке
+    'button_click': 5,         # Пауза после клика по кнопке
     'download_start': 2,       # Ожидание начала скачивания
     'backup_processing': 36000,  # Ожидание обработки бэкапа (10 часов)
     'post_download': 93600,    # 26 часов после завершения скачиваний (93600 секунд)
