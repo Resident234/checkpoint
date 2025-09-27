@@ -84,8 +84,9 @@ async def run(driver: WebDriver = None, download_path: str = None):
                             
                             # Прокручиваем до кнопки и кликаем
                             driver.execute_script("arguments[0].scrollIntoView();", button)
-                            sleep(pauses.download['button_click'], "Пауза после клика по кнопке")
+                            sleep(pauses.download['button_click'], "Пауза после прокрутки к кнопке")
                             button.click()
+                            sleep(pauses.download['button_click'], "Пауза после клика по кнопке")
                             
                             # Ждем начала скачивания
                             sleep(pauses.download['download_start'], "Ожидание начала скачивания")
