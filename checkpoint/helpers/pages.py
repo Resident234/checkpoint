@@ -123,3 +123,56 @@ def save_allowed_pages(allowed_pages):
         gb.rc.print(f"💾 Сохранены allowed_pages в файл: {allowed_pages}", style="green")
     except Exception as e:
         gb.rc.print(f"❌ Ошибка при сохранении allowed_pages: {e}", style="red")
+
+def get_page_title(driver: WebDriver):
+    """
+    Находит элемент с указанными CSS-свойствами и возвращает текст из него
+    
+    Args:
+        driver: WebDriver instance
+        
+    Returns:
+        str: Текст элемента или None если элемент не найден
+    """
+    style = "-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box;"
+    
+    try:
+        # Ищем элемент по CSS-селектору с указанными стилями
+        # Используем XPath для поиска элемента с точным соответствием стиля
+        xpath = f"//*//*[@style='{style}']"
+        
+        # Ждем появления элемента на странице
+        wait = WebDriverWait(driver, WAIT_TIMEOUT)
+        element = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+        
+        # Получаем текст из найденного элемента
+        title_text = element.text.strip()
+        
+        if title_text:
+            gb.rc.print(f"📄 Страница: {title_text}", style="green")
+            return title_text
+        else:
+            return None
+            
+    except Exception:
+
+        # Попробуем альтернативный способ - поиск по частичному совпадению стиля
+        try:
+            # Ищем элементы, которые содержат ключевые CSS-свойства
+            elements = driver.find_elements(By.XPATH, "//*[contains(@style, '-webkit-line-clamp: 2')]")
+            
+            for element in elements:
+                element_style = element.get_attribute("style")
+                if ("-webkit-box-orient: vertical" in element_style and 
+                    "-webkit-line-clamp: 2" in element_style and 
+                    "display: -webkit-box" in element_style):
+                    
+                    title_text = element.text.strip()
+                    if title_text:
+                        gb.rc.print(f"📄 Страница: {title_text}", style="green")
+                        return title_text
+            
+            return None
+            
+        except Exception:
+            return None
