@@ -1,5 +1,3 @@
-from time import sleep
-
 from rich_argparse import RichHelpFormatter
 
 import argparse
@@ -94,6 +92,6 @@ def process_args(args: argparse.Namespace):
             from checkpoint.modules import disabled
             asyncio.run(disabled.run(driver, args.downloadpath))
 
-    sleep(pauses.general['final_cleanup'])
+    sleep(pauses.general['final_cleanup'], "Финальная очистка перед закрытием")
     driver_manager.close()
 

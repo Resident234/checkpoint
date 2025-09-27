@@ -4,7 +4,6 @@ import re
 import threading
 import time
 from pathlib import Path
-from time import sleep
 
 import httpx
 from bs4 import BeautifulSoup
@@ -322,7 +321,7 @@ def two_step_verification_wait(driver: WebDriver):
         
         # Ждем завершения одного из потоков
         while not threads_stop_event.is_set():
-            sleep(pauses.auth['thread_check'])
+            sleep(pauses.auth['thread_check'], "Проверка состояния потоков")
         
         # Принудительно завершаем оставшийся поток
         threads_stop_event.set()
@@ -355,7 +354,7 @@ def two_step_verification_wait(driver: WebDriver):
                 sys.exit('[ERROR] Код введен неудачно слишком много раз')
         
         # Ждем результата ввода кода
-        sleep(pauses.auth['verification_input'])
+        sleep(pauses.auth['verification_input'], "Ожидание после ввода кода верификации")
         
         # Проверяем, есть ли ошибка неправильного кода
         if not _check_verification_errors(driver):

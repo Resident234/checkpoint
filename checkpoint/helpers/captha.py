@@ -1,6 +1,5 @@
 import requests
 from selenium.webdriver.support import expected_conditions as EC
-from time import sleep
 
 from selenium.common import WebDriverException
 from selenium.webdriver.chrome.webdriver import WebDriver
@@ -8,6 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 import speech_recognition as sr
 from pydub import AudioSegment
+from checkpoint.helpers.utils import sleep
 
 
 def solve_captcha(driver: WebDriver):
@@ -20,7 +20,7 @@ def solve_captcha(driver: WebDriver):
     print("Текст капчи:" + captcha_text)
     input = driver.find_element(By.XPATH, "//input[@type='text']")
     input.send_keys(captcha_text)
-    sleep(1)
+    sleep(1, "Ожидание после ввода капчи")
     submit_button = driver.find_element(By.XPATH, "//*[text()='Продолжить']")
     submit_button.click()
 
@@ -41,7 +41,7 @@ def solve_audio_captcha(driver: WebDriver):
     driver.switch_to.window(driver.window_handles[1])
     driver.get(audio_src)
 
-    sleep(10)  # todo дождаться пока загрузится
+    sleep(10, "Ожидание загрузки аудио капчи")  # todo дождаться пока загрузится
 
     audio_element = driver.find_element(By.CSS_SELECTOR, "audio")
     audio_url = audio_element.get_attribute('src')

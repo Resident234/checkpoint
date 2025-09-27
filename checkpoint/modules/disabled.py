@@ -1,5 +1,4 @@
 from pathlib import Path
-from time import sleep
 
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.webdriver import WebDriver
@@ -8,6 +7,7 @@ from selenium.webdriver.common.by import By
 from checkpoint import globals as gb
 from checkpoint.helpers.pages import check_page, load_allowed_pages, save_allowed_pages
 from checkpoint.helpers.email import *
+from checkpoint.helpers.utils import sleep
 from checkpoint.knowledge import fs, pauses
 from checkpoint.modules import login
 
@@ -49,7 +49,7 @@ async def run(driver: WebDriver = None, download_path: str = None):
                 save_allowed_pages(allowed_pages)
 
         if 'creation_backup_is_processing' in allowed_pages and check_page(driver, 'creation_backup_is_processing'): #todo вывод в консоль текущего теста со страницы
-            sleep(pauses.download['backup_processing'])
+            sleep(pauses.download['backup_processing'], "Ожидание обработки бэкапа")
 
         if 'login' in allowed_pages and check_page(driver, 'login'):
             import asyncio
@@ -79,11 +79,11 @@ async def run(driver: WebDriver = None, download_path: str = None):
                             
                             # Прокручиваем до кнопки и кликаем
                             driver.execute_script("arguments[0].scrollIntoView();", button)
-                            sleep(pauses.download['button_click'])
+                            sleep(pauses.download['button_click'], "Пауза после клика по кнопке")
                             button.click()
                             
                             # Ждем начала скачивания
-                            sleep(pauses.download['download_start'])
+                            sleep(pauses.download['download_start'], "Ожидание начала скачивания")
                             gb.rc.print(f"✅ Кнопка {i} нажата, файл отправлен на скачивание", style="green")
                             
                         except Exception as e:
@@ -100,7 +100,7 @@ async def run(driver: WebDriver = None, download_path: str = None):
 
                     gb.rc.print("⏳ Ожидаем завершения всех скачиваний...", style="yellow")
                     gb.rc.print("😴 Пауза на 6 часов после завершения скачиваний...", style="magenta")
-                    sleep(pauses.download['post_download'])
+                    sleep(pauses.download['post_download'], "Пауза после завершения скачиваний")
                     gb.rc.print("⏰ Пауза завершена, продолжаем работу", style="green")
 
 

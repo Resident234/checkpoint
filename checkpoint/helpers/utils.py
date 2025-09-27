@@ -2,7 +2,7 @@ from pathlib import Path
 from PIL import Image
 import hashlib
 from typing import *
-from time import time
+import time
 from datetime import datetime, timezone
 from dateutil.parser import isoparse
 from copy import deepcopy
@@ -253,4 +253,31 @@ def get_temp_path(filename: str) -> Path:
     """
     temp_dir = ensure_temp_directory()
     return temp_dir / filename
+
+
+def sleep(duration, description="Пауза"):
+    """
+    Sleep wrapper with console logging
+    
+    Args:
+        duration (float): Duration in seconds
+        description (str): Description of the pause
+    """
+    if duration >= 3600:  # 1 час и больше
+        hours = int(duration // 3600)
+        minutes = int((duration % 3600) // 60)
+        seconds = int(duration % 60)
+        duration_str = f"{hours} ч {minutes} мин {seconds} сек"
+    elif duration >= 60:  # 1 минута и больше
+        minutes = int(duration // 60)
+        seconds = int(duration % 60)
+        duration_str = f"{minutes} мин {seconds} сек"
+    else:
+        duration_str = f"{duration} сек"
+    
+    start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    gb.rc.print(f"⏳ [{start_time}] Начало паузы: {description} ({duration_str})", style="yellow")
+    time.sleep(duration)
+    end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    gb.rc.print(f"✅ [{end_time}] Пауза завершена", style="green")
 
