@@ -10,7 +10,7 @@ def init_globals():
     
     from checkpoint import config
     tmprinter = TMPrinter()
-    rc = Console(highlight=False) # Rich Console
+    rc = Console(highlight=True) # Rich Console
     
 def add_global(name: str, value: any):
     """Add a new global variable that can be accessed from anywhere in the application.
