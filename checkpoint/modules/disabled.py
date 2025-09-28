@@ -7,8 +7,10 @@ from selenium.webdriver.common.by import By
 from checkpoint import globals as gb
 from checkpoint.helpers.pages import check_page, load_allowed_pages, save_allowed_pages, get_page_title
 from checkpoint.helpers.email import *
+from checkpoint.helpers.popups import check_popup
 from checkpoint.helpers.utils import sleep
 from checkpoint.knowledge import fs, pauses
+from checkpoint.knowledge.pages import urls
 from checkpoint.modules import login
 
 
@@ -55,9 +57,8 @@ async def run(driver: WebDriver = None, download_path: str = None):
             sleep(pauses.download['backup_processing'], "Ожидание обработки бэкапа")
 
         if 'login' in allowed_pages and check_page(driver, 'login'):
-            import asyncio
             get_page_title(driver)
-            asyncio.run(login.check_and_login(driver))
+            await login.check_and_login(driver)
 
         if 'download_ready' in allowed_pages and check_page(driver, 'download_ready'):
             get_page_title(driver)
@@ -112,5 +113,12 @@ async def run(driver: WebDriver = None, download_path: str = None):
             except NoSuchElementException:
                 pass
 
+        # Проверка на истечение времени сеанса
+        if check_popup(driver, "session_timeout"):
+            gb.rc.print("🏠 Переходим на главную страницу из-за истечения сеанса", style="cyan")
+            driver.get(urls["home"])
+            continue
 
         driver.refresh()
+
+
