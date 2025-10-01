@@ -41,7 +41,7 @@ class CheckPointCreds(SmartObj):
     """
     
     def __init__(self, creds_path: str = "") -> None:
-        self.cookies: Dict[str, str] = {}
+        self.cookies: List[dict] = []
 
         if not creds_path:
             # Use temporary directory instead of home directory

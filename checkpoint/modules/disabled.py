@@ -14,6 +14,63 @@ from checkpoint.knowledge.pages import urls
 from checkpoint.modules import login
 
 
+def handle_download_ready(driver: WebDriver, download_folder: Path) -> None:
+    """
+    Обрабатывает страницу с готовыми для скачивания файлами
+    
+    Args:
+        driver: WebDriver instance
+        download_folder: Путь к папке для скачивания
+    """
+    # Поиск всех кнопок с текстом "Скачать * файлов из *"
+    try:
+        download_buttons = driver.find_elements(
+            By.XPATH, 
+            "//*[contains(text(), 'Скачать') and contains(text(), 'файлов из')]"
+        )
+        
+        if download_buttons:
+            gb.rc.print(f"🔍 Найдено {len(download_buttons)} кнопок для скачивания", style="yellow")
+            
+            for i, button in enumerate(download_buttons, 1):
+                try:
+                    button_text = button.text
+                    gb.rc.print(f"📥 Нажимаем кнопку {i}: {button_text}", style="cyan")
+                    
+                    # Настройка Chrome для скачивания в указанную папку
+                    driver.execute_cdp_cmd('Page.setDownloadBehavior', {
+                        'behavior': 'allow',
+                        'downloadPath': str(download_folder)
+                    })
+                    
+                    # Прокручиваем до кнопки и кликаем
+                    driver.execute_script("arguments[0].scrollIntoView();", button)
+                    sleep(pauses.download['button_click'], "Пауза после прокрутки к кнопке")
+                    button.click()
+                    sleep(pauses.download['button_click'], "Пауза после клика по кнопке")
+                    
+                    # Ждем начала скачивания
+                    sleep(pauses.download['download_start'], "Ожидание начала скачивания")
+                    gb.rc.print(f"✅ Кнопка {i} нажата, файл отправлен на скачивание", style="green")
+                    
+                except Exception as e:
+                    gb.rc.print(f"❌ Ошибка при нажатии кнопки {i}: {e}", style="red")
+                    continue
+
+            gb.rc.print(f"📊 Всего отправлено на скачивание: {len(download_buttons)} файлов", style="blue")
+
+            # Отправляем уведомление на email
+            send_download_completion_notification("gsu1234@mail.ru", len(download_buttons))
+
+            gb.rc.print("⏳ Ожидаем завершения всех скачиваний...", style="yellow")
+            gb.rc.print("😴 Пауза на 6 часов после завершения скачиваний...", style="magenta")
+            sleep(pauses.download['post_download'], "Пауза после завершения скачиваний")
+            gb.rc.print("⏰ Пауза завершена, продолжаем работу", style="green")
+
+    except NoSuchElementException:
+        pass
+
+
 async def run(driver: WebDriver = None, download_path: str = None):
     gb.rc.print("\n🗺️ Disabled account page", style="green4")
 
@@ -60,58 +117,13 @@ async def run(driver: WebDriver = None, download_path: str = None):
             get_page_title(driver)
             await login.check_and_login(driver)
 
+        allowed_pages.remove('download_ready')
+        allowed_pages.append('download_ready')
         if 'download_ready' in allowed_pages and check_page(driver, 'download_ready'):
             get_page_title(driver)
-            # Поиск всех кнопок с текстом "Скачать * файлов из *"
-            try:
-                download_buttons = driver.find_elements(
-                    By.XPATH, 
-                    "//*[contains(text(), 'Скачать') and contains(text(), 'файлов из')]"
-                )
-                
-                if download_buttons:
-                    gb.rc.print(f"🔍 Найдено {len(download_buttons)} кнопок для скачивания", style="yellow")
-                    
-                    for i, button in enumerate(download_buttons, 1):
-                        try:
-                            button_text = button.text
-                            gb.rc.print(f"📥 Нажимаем кнопку {i}: {button_text}", style="cyan")
-                            
-                            # Настройка Chrome для скачивания в указанную папку
-                            driver.execute_cdp_cmd('Page.setDownloadBehavior', {
-                                'behavior': 'allow',
-                                'downloadPath': str(download_folder)
-                            })
-                            
-                            # Прокручиваем до кнопки и кликаем
-                            driver.execute_script("arguments[0].scrollIntoView();", button)
-                            sleep(pauses.download['button_click'], "Пауза после прокрутки к кнопке")
-                            button.click()
-                            sleep(pauses.download['button_click'], "Пауза после клика по кнопке")
-                            
-                            # Ждем начала скачивания
-                            sleep(pauses.download['download_start'], "Ожидание начала скачивания")
-                            gb.rc.print(f"✅ Кнопка {i} нажата, файл отправлен на скачивание", style="green")
-                            
-                        except Exception as e:
-                            gb.rc.print(f"❌ Ошибка при нажатии кнопки {i}: {e}", style="red")
-                            continue
-
-                    allowed_pages.remove('download_ready')
-                    save_allowed_pages(allowed_pages)
-
-                    gb.rc.print(f"📊 Всего отправлено на скачивание: {len(download_buttons)} файлов", style="blue")
-
-                    # Отправляем уведомление на email
-                    send_download_completion_notification("gsu1234@mail.ru", len(download_buttons))
-
-                    gb.rc.print("⏳ Ожидаем завершения всех скачиваний...", style="yellow")
-                    gb.rc.print("😴 Пауза на 6 часов после завершения скачиваний...", style="magenta")
-                    sleep(pauses.download['post_download'], "Пауза после завершения скачиваний")
-                    gb.rc.print("⏰ Пауза завершена, продолжаем работу", style="green")
-
-            except NoSuchElementException:
-                pass
+            handle_download_ready(driver, download_folder)
+            allowed_pages.remove('download_ready')
+            save_allowed_pages(allowed_pages)
 
         # Проверка на истечение времени сеанса
         if check_popup(driver, "session_timeout"):

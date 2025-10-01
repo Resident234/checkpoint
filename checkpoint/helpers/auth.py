@@ -44,7 +44,7 @@ async def check_cookies(driver: WebDriver, cookies) -> bool:
     return check_page(driver, 'index') or check_page(driver, 'authorized')
 
 @print_function_name
-async def gen_cookies(driver: WebDriver, checkpoint_creds: CheckPointCreds):
+async def gen_cookies(driver: WebDriver, creds: CheckPointCreds):
     driver.get(urls["home"])
 
     loop_counter = 0
@@ -68,17 +68,15 @@ async def gen_cookies(driver: WebDriver, checkpoint_creds: CheckPointCreds):
         if check_page(driver, 'authorized'):
             break
 
-    checkpoint_creds.cookies = driver.get_cookies()
+    creds.cookies = driver.get_cookies()
+
 
 @print_function_name
-async def check_and_gen(driver: WebDriver, checkpoint_creds: CheckPointCreds, renew: bool = False):
+async def check_and_gen(driver: WebDriver, creds: CheckPointCreds, renew: bool = False):
     """Checks the validity of the cookies and generate new ones if needed."""
-    if renew or not await check_cookies(driver, checkpoint_creds.cookies):
-        await gen_cookies(driver, checkpoint_creds)
-        #if not await check_cookies(driver, checkpoint_creds.cookies):
-        #    raise CheckPointLoginError("[-] Can't generate cookies after multiple retries. Exiting...")
+    if renew or not await check_cookies(driver, creds.cookies):
+        await gen_cookies(driver, creds)
 
-    checkpoint_creds.save_creds(silent=True)
     gb.rc.print("[+] Authenticated !\n", style="sea_green3")
 
 @print_function_name
@@ -91,6 +89,8 @@ async def load_and_auth(driver: WebDriver, renew: bool = False) -> CheckPointCre
         print(f"Need generate a new session by doing => login")
 
     await check_and_gen(driver, creds, renew)
+
+    creds.save_creds()
 
     return creds
 

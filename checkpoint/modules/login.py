@@ -33,4 +33,4 @@ async def check_and_login(driver: WebDriver = None, renewcookie: bool=False) -> 
 
     driver.refresh()
 
-    checkpoint_creds.save_creds()
+    #checkpoint_creds.save_creds()
