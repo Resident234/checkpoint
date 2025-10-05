@@ -14,10 +14,12 @@ from checkpoint.knowledge.pages import urls
 from checkpoint.modules import login
 from checkpoint.objects.archive import ArchiveManager
 from checkpoint.objects.media import MediaManager
+from checkpoint.objects.stats import PhotoStatsManager
 
 # Глобальные переменные для менеджеров
 archive_manager = None
 media_manager = None
+stats_manager = None
 
 
 
@@ -102,7 +104,7 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
     gb.rc.print(f"📁 Файлы будут сохраняться в: {download_folder}", style="blue")
     
     # Инициализируем и запускаем менеджер архивов
-    global archive_manager, media_manager
+    global archive_manager, media_manager, stats_manager
     archive_manager = ArchiveManager(download_folder)
     archive_manager.start_monitor()
     
@@ -111,6 +113,12 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
     gb.rc.print(f"📁 Медиа файлы будут перемещаться в: {root_folder}", style="blue")
     media_manager = MediaManager(media_path, root_folder)
     media_manager.start_monitor()
+    
+    # Инициализируем и запускаем менеджер статистики
+    stats_logs_path = download_folder / "stats_logs"
+    gb.rc.print(f"📊 Логи статистики будут сохраняться в: {stats_logs_path}", style="blue")
+    stats_manager = PhotoStatsManager(root_folder, stats_logs_path)
+    stats_manager.start_monitor()
     
     # Загружаем allowed_pages из JSON файла или используем значения по умолчанию
     allowed_pages = load_allowed_pages()
@@ -168,5 +176,9 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
         # Останавливаем мониторинг медиа папок при выходе
         if media_manager:
             media_manager.stop_monitor()
+        
+        # Останавливаем мониторинг статистики при выходе
+        if stats_manager:
+            stats_manager.stop_monitor()
 
 

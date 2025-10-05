@@ -45,6 +45,12 @@ upload = {
     'connection_check': 1,     # Проверка соединения
 }
 
+# Photo statistics monitoring pauses
+stats = {
+    'hourly_check': 3600,      # Проверка статистики каждый час (3600 секунд)
+    'error_recovery': 300,     # Пауза при ошибке в сборе статистики (5 минут)
+}
+
 # Throttling function delays (used in sleep_throttling)
 throttling = {
     'base_delay': 1,           # Базовая задержка в функции sleep_throttling
