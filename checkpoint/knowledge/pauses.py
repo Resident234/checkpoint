@@ -33,6 +33,13 @@ archive = {
     'error_recovery': 100,      # Увеличенная пауза при ошибке в мониторинге
 }
 
+# Media processing pauses
+media = {
+    'folder_scan': 300,          # Пауза между сканированием папок медиа
+    'processing_cycle': 50,      # Пауза между обработкой отдельных папок
+    'error_recovery': 100,       # Пауза при ошибке в обработке медиа
+}
+
 # Upload and connection pauses
 upload = {
     'connection_check': 1,     # Проверка соединения

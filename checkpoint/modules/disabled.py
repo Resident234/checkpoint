@@ -13,9 +13,11 @@ from checkpoint.knowledge import fs, pauses
 from checkpoint.knowledge.pages import urls
 from checkpoint.modules import login
 from checkpoint.objects.archive import ArchiveManager
+from checkpoint.objects.media import MediaManager
 
-# Глобальная переменная для менеджера архивов
+# Глобальные переменные для менеджеров
 archive_manager = None
+media_manager = None
 
 
 
@@ -96,9 +98,14 @@ async def run(driver: WebDriver = None, download_path: str = None):
     gb.rc.print(f"📁 Файлы будут сохраняться в: {download_folder}", style="blue")
     
     # Инициализируем и запускаем менеджер архивов
-    global archive_manager
+    global archive_manager, media_manager
     archive_manager = ArchiveManager(download_folder)
     archive_manager.start_monitor()
+    
+    # Инициализируем и запускаем менеджер медиа
+    media_path = download_folder / "your_facebook_activity" / "posts" / "media"
+    media_manager = MediaManager(media_path)
+    media_manager.start_monitor()
     
     # Загружаем allowed_pages из JSON файла или используем значения по умолчанию
     allowed_pages = load_allowed_pages()
@@ -152,5 +159,9 @@ async def run(driver: WebDriver = None, download_path: str = None):
         # Останавливаем мониторинг ZIP файлов при выходе
         if archive_manager:
             archive_manager.stop_monitor()
+        
+        # Останавливаем мониторинг медиа папок при выходе
+        if media_manager:
+            media_manager.stop_monitor()
 
 
