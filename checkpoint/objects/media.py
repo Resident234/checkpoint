@@ -21,15 +21,16 @@ class MediaManager:
     - Перемещение папок в директорию PHOTO
     """
     
-    def __init__(self, media_path: Path):
+    def __init__(self, media_path: Path, photo_path: Path):
         """
-        Инициализация процессора медиа
+        Инициализация менеджера медиа
         
         Args:
             media_path: Путь к папке your_facebook_activity/posts/media
+            photo_path: Путь к папке PHOTO (по умолчанию: на том же уровне что и your_facebook_activity)
         """
         self.media_path = media_path
-        self.photo_dir = media_path.parent.parent.parent / "PHOTO"  # Same level as your_facebook_activity
+        self.photo_path = photo_path
         self.monitor_running = False
         self.monitor_thread = None
         self.processed_folders: Set[str] = set()
@@ -136,19 +137,19 @@ class MediaManager:
                 folder_path = new_folder_path
             
             # Создаем папку PHOTO если не существует
-            self.photo_dir.mkdir(exist_ok=True)
+            self.photo_path.mkdir(exist_ok=True)
             
             # Перемещаем папку в PHOTO
-            photo_target = self.photo_dir / folder_path.name
+            photo_target = self.photo_path / folder_path.name
             
             if photo_target.exists():
                 # Папка уже существует в PHOTO, объединяем
-                gb.rc.print(f"📁 Объединение с папкой в PHOTO: {folder_path.name}", style="yellow")
+                gb.rc.print(f"📁 Объединение с папкой в {self.photo_path}: {folder_path.name}", style="yellow")
                 self.merge_directories(folder_path, photo_target)
             else:
                 # Перемещаем папку в PHOTO
                 shutil.move(str(folder_path), str(photo_target))
-                gb.rc.print(f"📦 Папка перемещена в PHOTO: {folder_path.name}", style="green")
+                gb.rc.print(f"📦 Папка перемещена в {self.photo_path}: {folder_path.name}", style="green")
             
             return True
             

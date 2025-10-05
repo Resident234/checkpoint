@@ -28,8 +28,14 @@ def parse_and_run():
     parser_disabled.add_argument(
         '--downloadpath',
         type=str,
-        default="H:\\",
-        help='Путь к папке для скачивания файлов (по умолчанию: H:\\)'
+        default="H:/",
+        help='Путь к папке для скачивания файлов (по умолчанию: H:/)'
+    )
+    parser_disabled.add_argument(
+        '--rootfolder',
+        type=str,
+        default="H:/PHOTO/",
+        help='Путь к корневой папке для медиа файлов (по умолчанию: H:/PHOTO/)'
     )
 
     ### Gaia module
@@ -104,7 +110,7 @@ def process_args(args: argparse.Namespace):
                 pass
             case "disabled":
                 from checkpoint.modules import disabled
-                asyncio.run(disabled.run(driver, args.downloadpath))
+                asyncio.run(disabled.run(driver, args.downloadpath, args.rootfolder))
 
         sleep(pauses.general['final_cleanup'], "Финальная очистка перед закрытием")
         driver_manager.close()

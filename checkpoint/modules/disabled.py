@@ -78,7 +78,7 @@ def handle_download_ready(driver: WebDriver, download_folder: Path) -> None:
         pass
 
 
-async def run(driver: WebDriver = None, download_path: str = None):
+async def run(driver: WebDriver = None, download_path: str = None, root_folder: str = None):
     gb.rc.print("\n🗺️ Disabled account page", style="green4")
 
     # Отправляем уведомление о запуске модуля
@@ -88,7 +88,11 @@ async def run(driver: WebDriver = None, download_path: str = None):
     if download_path is None:
         download_path = fs.path['download_path']
 
+    if root_folder is None:
+        root_folder = fs.path['root_folder']
+
     download_folder = Path(download_path)
+    root_folder = Path(root_folder)
 
     # Проверяем, существует ли указанная папка
     if not download_folder.exists():
@@ -104,7 +108,8 @@ async def run(driver: WebDriver = None, download_path: str = None):
     
     # Инициализируем и запускаем менеджер медиа
     media_path = download_folder / "your_facebook_activity" / "posts" / "media"
-    media_manager = MediaManager(media_path)
+    gb.rc.print(f"📁 Медиа файлы будут перемещаться в: {root_folder}", style="blue")
+    media_manager = MediaManager(media_path, root_folder)
     media_manager.start_monitor()
     
     # Загружаем allowed_pages из JSON файла или используем значения по умолчанию

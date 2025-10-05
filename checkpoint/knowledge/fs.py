@@ -4,6 +4,7 @@ File system configuration and constants
 
 path = {
     'download_path': "H:/",
+    'root_folder': "H:/PHOTO/"
 }
 
 files = {
