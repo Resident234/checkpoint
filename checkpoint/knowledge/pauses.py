@@ -29,14 +29,14 @@ download = {
 # Archive monitoring pauses
 archive = {
     'file_stability_check': 2,  # Проверка стабильности размера файла
-    'monitor_cycle': 50,        # Пауза между циклами мониторинга ZIP файлов
+    'monitor_cycle': 500,        # Пауза между циклами мониторинга ZIP файлов
     'error_recovery': 100,      # Увеличенная пауза при ошибке в мониторинге
 }
 
 # Media processing pauses
 media = {
     'folder_scan': 300,          # Пауза между сканированием папок медиа
-    'processing_cycle': 50,      # Пауза между обработкой отдельных папок
+    'processing_cycle': 500,      # Пауза между обработкой отдельных папок
     'error_recovery': 100,       # Пауза при ошибке в обработке медиа
 }
 
