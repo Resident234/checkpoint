@@ -26,6 +26,13 @@ download = {
     'post_download': 93600,    # 26 часов после завершения скачиваний (93600 секунд)
 }
 
+# Archive monitoring pauses
+archive = {
+    'file_stability_check': 2,  # Проверка стабильности размера файла
+    'monitor_cycle': 50,        # Пауза между циклами мониторинга ZIP файлов
+    'error_recovery': 100,      # Увеличенная пауза при ошибке в мониторинге
+}
+
 # Upload and connection pauses
 upload = {
     'connection_check': 1,     # Проверка соединения

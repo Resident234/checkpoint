@@ -12,6 +12,12 @@ from checkpoint.helpers.utils import sleep
 from checkpoint.knowledge import fs, pauses
 from checkpoint.knowledge.pages import urls
 from checkpoint.modules import login
+from checkpoint.objects.archive import ArchiveManager
+
+# Глобальная переменная для менеджера архивов
+archive_manager = None
+
+
 
 
 def handle_download_ready(driver: WebDriver, download_folder: Path) -> None:
@@ -63,7 +69,6 @@ def handle_download_ready(driver: WebDriver, download_folder: Path) -> None:
             send_download_completion_notification("gsu1234@mail.ru", len(download_buttons))
 
             gb.rc.print("⏳ Ожидаем завершения всех скачиваний...", style="yellow")
-            gb.rc.print("😴 Пауза на 6 часов после завершения скачиваний...", style="magenta")
             sleep(pauses.download['post_download'], "Пауза после завершения скачиваний")
             gb.rc.print("⏰ Пауза завершена, продолжаем работу", style="green")
 
@@ -90,47 +95,62 @@ async def run(driver: WebDriver = None, download_path: str = None):
     
     gb.rc.print(f"📁 Файлы будут сохраняться в: {download_folder}", style="blue")
     
+    # Инициализируем и запускаем менеджер архивов
+    global archive_manager
+    archive_manager = ArchiveManager(download_folder)
+    archive_manager.start_monitor()
+    
     # Загружаем allowed_pages из JSON файла или используем значения по умолчанию
     allowed_pages = load_allowed_pages()
 
-    while True:
+    try:
+        while True:
 
-        if 'disabled_account' in allowed_pages and check_page(driver, 'disabled_account'):
-            get_page_title(driver)
-            button = driver.find_element(By.XPATH, "//*[text()='Скачать информацию']")
-            if button:
-                button.click()
+            if 'disabled_account' in allowed_pages and check_page(driver, 'disabled_account'):
+                get_page_title(driver)
+                button = driver.find_element(By.XPATH, "//*[text()='Скачать информацию']")
+                if button:
+                    button.click()
 
-        if 'download_account' in allowed_pages and check_page(driver, 'download_account'):
-            get_page_title(driver)
-            button = driver.find_element(By.XPATH, "//*[text()='Запросить файл']")
-            if button:
-                button.click()
-                allowed_pages.append('download_ready')
+            if 'download_account' in allowed_pages and check_page(driver, 'download_account'):
+                get_page_title(driver)
+                button = driver.find_element(By.XPATH, "//*[text()='Запросить файл']")
+                if button:
+                    button.click()
+                    allowed_pages.append('download_ready')
+                    save_allowed_pages(allowed_pages)
+
+            if 'creation_backup_is_processing' in allowed_pages and check_page(driver, 'creation_backup_is_processing'): #todo вывод в консоль текущего теста со страницы
+                get_page_title(driver)
+                sleep(pauses.download['backup_processing'], "Ожидание обработки бэкапа")
+
+            if 'login' in allowed_pages and check_page(driver, 'login'):
+                get_page_title(driver)
+                await login.check_and_login(driver)
+
+            allowed_pages.remove('download_ready')
+            allowed_pages.append('download_ready')
+            if 'download_ready' in allowed_pages and check_page(driver, 'download_ready'):
+                get_page_title(driver)
+                handle_download_ready(driver, download_folder)
+                allowed_pages.remove('download_ready')
                 save_allowed_pages(allowed_pages)
 
-        if 'creation_backup_is_processing' in allowed_pages and check_page(driver, 'creation_backup_is_processing'): #todo вывод в консоль текущего теста со страницы
-            get_page_title(driver)
-            sleep(pauses.download['backup_processing'], "Ожидание обработки бэкапа")
+            # Проверка на истечение времени сеанса
+            if check_popup(driver, "session_timeout"):
+                gb.rc.print("🏠 Переходим на главную страницу из-за истечения сеанса", style="cyan")
+                driver.get(urls["home"])
+                continue
 
-        if 'login' in allowed_pages and check_page(driver, 'login'):
-            get_page_title(driver)
-            await login.check_and_login(driver)
-
-        allowed_pages.remove('download_ready')
-        allowed_pages.append('download_ready')
-        if 'download_ready' in allowed_pages and check_page(driver, 'download_ready'):
-            get_page_title(driver)
-            handle_download_ready(driver, download_folder)
-            allowed_pages.remove('download_ready')
-            save_allowed_pages(allowed_pages)
-
-        # Проверка на истечение времени сеанса
-        if check_popup(driver, "session_timeout"):
-            gb.rc.print("🏠 Переходим на главную страницу из-за истечения сеанса", style="cyan")
-            driver.get(urls["home"])
-            continue
-
-        driver.refresh()
+            driver.refresh()
+            
+    except KeyboardInterrupt:
+        gb.rc.print("⚠️ Получен сигнал прерывания, завершаем работу...", style="yellow")
+    except Exception as e:
+        gb.rc.print(f"❌ Критическая ошибка в модуле disabled: {e}", style="red")
+    finally:
+        # Останавливаем мониторинг ZIP файлов при выходе
+        if archive_manager:
+            archive_manager.stop_monitor()
 
 
