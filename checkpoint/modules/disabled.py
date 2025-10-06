@@ -109,13 +109,13 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
     archive_manager.start_monitor()
     
     # Инициализируем и запускаем менеджер медиа
-    media_path = download_folder / "your_facebook_activity" / "posts" / "media"
+    media_path = download_folder / fs.path['facebook_media_subpath']
     gb.rc.print(f"📁 Медиа файлы будут перемещаться в: {root_folder}", style="blue")
     media_manager = MediaManager(media_path, root_folder)
     media_manager.start_monitor()
     
     # Инициализируем и запускаем менеджер статистики
-    stats_logs_path = download_folder / "stats_logs"
+    stats_logs_path = download_folder / fs.path['stats_logs_dir']
     gb.rc.print(f"📊 Логи статистики будут сохраняться в: {stats_logs_path}", style="blue")
     stats_manager = PhotoStatsManager(root_folder, stats_logs_path)
     stats_manager.start_monitor()

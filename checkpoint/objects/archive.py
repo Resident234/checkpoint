@@ -7,6 +7,7 @@ from typing import Set
 
 from checkpoint import globals as gb
 from checkpoint.knowledge import pauses
+from checkpoint.knowledge.fs import path as fs_path
 from checkpoint.helpers.utils import sleep
 
 
@@ -29,7 +30,7 @@ class ArchiveManager:
             download_path: Путь к папке загрузок для мониторинга
         """
         self.download_path = download_path
-        self.to_delete_dir = download_path / "to_delete"
+        self.to_delete_dir = download_path / fs_path['to_delete_dir']
         self.monitor_running = False
         self.monitor_thread = None
         self.processed_files: Set[str] = set()
