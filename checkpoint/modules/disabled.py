@@ -5,6 +5,7 @@ from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 
 from checkpoint import globals as gb
+from checkpoint import config
 from checkpoint.helpers.pages import check_page, load_allowed_pages, save_allowed_pages, get_page_title
 from checkpoint.helpers.email import *
 from checkpoint.helpers.popups import check_popup
@@ -70,7 +71,7 @@ def handle_download_ready(driver: WebDriver, download_folder: Path) -> None:
             gb.rc.print(f"📊 Всего отправлено на скачивание: {len(download_buttons)} файлов", style="blue")
 
             # Отправляем уведомление на email
-            send_download_completion_notification("gsu1234@mail.ru", len(download_buttons))
+            send_download_completion_notification(config.NOTIFY_EMAIL, len(download_buttons))
 
             gb.rc.print("⏳ Ожидаем завершения всех скачиваний...", style="yellow")
             sleep(pauses.download['post_download'], "Пауза после завершения скачиваний")
@@ -79,12 +80,15 @@ def handle_download_ready(driver: WebDriver, download_folder: Path) -> None:
     except NoSuchElementException:
         pass
 
-
+#todo Для потока и модуля в консоль префикс выводить
+#todo Статистику по новым и повторяющимся файлам отправлять на почту 
+#todo Статистику по новым и повторяющимся файлам починить
+#todo Добавить синхрон между менеджером архивов и медиа
 async def run(driver: WebDriver = None, download_path: str = None, root_folder: str = None):
     gb.rc.print("\n🗺️ Disabled account page", style="green4")
 
     # Отправляем уведомление о запуске модуля
-    send_module_start_notification("gsu1234@mail.ru", "Disabled Account Page")
+    send_module_start_notification(config.NOTIFY_EMAIL, "Disabled Account Page")
 
     # Настройка папки для скачивания
     if download_path is None:

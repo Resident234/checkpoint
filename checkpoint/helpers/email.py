@@ -6,12 +6,15 @@ from datetime import datetime
 import requests
 
 from checkpoint import config
+from checkpoint.knowledge import external
 from checkpoint import globals as gb
 
 
 def send_notification_email(to_email: str, subject: str, message: str, 
-                          smtp_server: str = "smtp.mail.ru",
-                          smtp_port: int = 465):
+                          smtp_server: str = external.email['smtp_host'],
+                          smtp_port: int = external.email['smtp_port'],
+                          from_email: str = config.EMAIL_FROM,
+                          from_password: str = config.EMAIL_APP_PASSWORD):
     """
     Отправляет уведомление на email
     
@@ -19,25 +22,18 @@ def send_notification_email(to_email: str, subject: str, message: str,
         to_email: Email получателя
         subject: Тема письма
         message: Текст сообщения
-        smtp_server: SMTP сервер (по умолчанию mail.ru)
-        smtp_port: Порт SMTP сервера
+        smtp_server: SMTP сервер (по умолчанию Gmail)
+        smtp_port: Порт SMTP сервера (587 для STARTTLS)
+        from_email: Email отправителя (ваш Gmail)
+        from_password: Пароль приложения Gmail (App Password)
+    
+    Инструкция по получению App Password для Gmail:
+    1. Перейдите на https://myaccount.google.com/security
+    2. Включите двухфакторную аутентификацию
+    3. Перейдите в "App passwords" (Пароли приложений)
+    4. Создайте новый пароль для "Mail"
+    5. Используйте полученный 16-значный пароль
     """
-    try:
-        api_key = config.MAILGUN_API_KEY
-
-        resp = requests.post(
-            config.MAILGUN_API_URL,
-            auth=("api", api_key),
-            data={"from": config.FROM_EMAIL_ADDRESS, "to": to_email, "subject": subject, "text": message}
-        )
-        if resp.status_code == 200:
-            gb.rc.print(f"Successfully sent an email to '{to_email}' via Mailgun API.")
-        else:  # error
-            gb.rc.print(f"Could not send the email, reason: {resp.text}")
-
-    except Exception as ex:
-        gb.rc.print(f"Mailgun error: {ex}")
-
 
     try:
             
