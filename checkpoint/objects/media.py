@@ -77,6 +77,9 @@ class MediaManager:
                     shutil.rmtree(str(item))
                 else:
                     shutil.move(str(item), str(target_item))
+                    if item.exists():
+                        shutil.rmtree(str(item))
+                        gb.rc.print(f"🗑️ Исходная папка удалена: {item.name}", style="cyan")
     
     def get_unique_filename(self, target_path: Path) -> Path:
         """
@@ -130,6 +133,9 @@ class MediaManager:
                     # Папка с таким именем уже существует, объединяем
                     gb.rc.print(f"📁 Объединение с существующей папкой: {cleaned_name}", style="yellow")
                     self.merge_directories(folder_path, new_folder_path)
+                    if folder_path.exists():
+                        shutil.rmtree(str(folder_path))
+                        gb.rc.print(f"🗑️ Исходная папка удалена: {folder_path.name}", style="cyan")
                 else:
                     # Просто переименовываем
                     folder_path.rename(new_folder_path)
@@ -146,10 +152,18 @@ class MediaManager:
                 # Папка уже существует в PHOTO, объединяем
                 gb.rc.print(f"📁 Объединение с папкой в {self.photo_path}: {folder_path.name}", style="yellow")
                 self.merge_directories(folder_path, photo_target)
+                # Удаляем исходную папку после объединения
+                if folder_path.exists():
+                    shutil.rmtree(str(folder_path))
+                    gb.rc.print(f"🗑️ Исходная папка удалена: {folder_path.name}", style="cyan")
             else:
                 # Перемещаем папку в PHOTO
                 shutil.move(str(folder_path), str(photo_target))
                 gb.rc.print(f"📦 Папка перемещена в {self.photo_path}: {folder_path.name}", style="green")
+                # Проверяем и удаляем исходную папку, если она осталась
+                if folder_path.exists():
+                    shutil.rmtree(str(folder_path))
+                    gb.rc.print(f"🗑️ Исходная папка удалена: {folder_path.name}", style="cyan")
             
             return True
             
