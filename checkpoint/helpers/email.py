@@ -10,11 +10,7 @@ from checkpoint.knowledge import external
 from checkpoint import globals as gb
 
 
-def send_notification_email(to_email: str, subject: str, message: str, 
-                          smtp_server: str = external.email['smtp_host'],
-                          smtp_port: int = external.email['smtp_port'],
-                          from_email: str = config.EMAIL_FROM,
-                          from_password: str = config.EMAIL_APP_PASSWORD):
+def send_notification_email(to_email: str, subject: str, message: str):
     """
     Отправляет уведомление на email
     
@@ -22,10 +18,6 @@ def send_notification_email(to_email: str, subject: str, message: str,
         to_email: Email получателя
         subject: Тема письма
         message: Текст сообщения
-        smtp_server: SMTP сервер (по умолчанию Gmail)
-        smtp_port: Порт SMTP сервера (587 для STARTTLS)
-        from_email: Email отправителя (ваш Gmail)
-        from_password: Пароль приложения Gmail (App Password)
     
     Инструкция по получению App Password для Gmail:
     1. Перейдите на https://myaccount.google.com/security
@@ -36,7 +28,12 @@ def send_notification_email(to_email: str, subject: str, message: str,
     """
 
     try:
-            
+        # Конфигурация берется из настроек приложения
+        smtp_server = external.email['smtp_host']
+        smtp_port = external.email['smtp_port']
+        from_email = config.EMAIL_FROM
+        from_password = config.EMAIL_APP_PASSWORD
+
         # Создаем сообщение
         msg = MIMEMultipart()
         msg['From'] = from_email
