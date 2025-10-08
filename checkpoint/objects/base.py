@@ -134,8 +134,10 @@ class DualConsole:
         # Основная консоль для терминала
         self.console = Console(highlight=highlight)
         
-        # Создаем директорию для логов
-        self.log_dir = Path("logs")
+        # Создаем директорию для логов в корне проекта (рядом с папкой checkpoint)
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent  # checkpoint/objects/base.py -> CheckPoint/
+        self.log_dir = project_root / "logs"
         self.log_dir.mkdir(exist_ok=True)
         
         # Создаем файл лога с текущей датой и временем
@@ -196,7 +198,9 @@ Log file: {self.log_file_path}
         Args:
             days_to_keep (int): Количество дней для хранения логов
         """
-        log_dir = Path("logs")
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent  # checkpoint/objects/base.py -> CheckPoint/
+        log_dir = project_root / "logs"
         if not log_dir.exists():
             return
         
