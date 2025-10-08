@@ -3,7 +3,7 @@ import re
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 from checkpoint import globals as gb
 from checkpoint.knowledge import pauses
@@ -51,12 +51,15 @@ class PhotoStatsManager:
         pattern = r'_\d+\.[^.]+$'
         return bool(re.search(pattern, filename))
     
-    def get_files_added_today(self) -> Tuple[int, int]:
+    def get_files_added_today(self) -> Tuple[int, int, List[str], List[str]]:
         """
         Подсчитывает файлы, добавленные сегодня в папку PHOTO
         
         Returns:
-            Tuple[int, int]: (количество новых файлов, количество дублей)
+            Tuple[int, int, List[str], List[str]]: (
+                количество новых файлов, количество дублей,
+                список имен новых файлов, список имен дублей
+            )
         """
         if not self.photo_path.exists():
             gb.rc.print(f"⚠️ Папка {self.photo_path} не найдена", style="yellow")
@@ -65,6 +68,8 @@ class PhotoStatsManager:
         today = datetime.now().date()
         new_files_count = 0
         duplicate_files_count = 0
+        new_file_names: List[str] = []
+        duplicate_file_names: List[str] = []
         
         try:
             # Рекурсивно проходим по всем файлам в папке PHOTO
@@ -82,20 +87,22 @@ class PhotoStatsManager:
                         if file_date == today:
                             if self.is_duplicate_file(file):
                                 duplicate_files_count += 1
+                                duplicate_file_names.append(str(file_path))
                             else:
                                 new_files_count += 1
+                                new_file_names.append(str(file_path))
                     
                     except (OSError, ValueError) as e:
                         gb.rc.print(f"⚠️ Ошибка при получении даты файла {file_path}: {e}", style="yellow")
                         continue
             
-            return new_files_count, duplicate_files_count
+            return new_files_count, duplicate_files_count, new_file_names, duplicate_file_names
             
         except Exception as e:
             gb.rc.print(f"❌ Ошибка при сканировании папки {self.photo_path}: {e}", style="red")
-            return 0, 0
+            return 0, 0, [], []
     
-    def write_daily_stats(self, new_files: int, duplicates: int) -> None:
+    def write_daily_stats(self, new_files: int, duplicates: int, new_names: list = None, dup_names: list = None) -> None:
         """
         Записывает статистику в ежедневный лог-файл
         
@@ -109,8 +116,18 @@ class PhotoStatsManager:
             log_filename = today.strftime("%d.%m.%Y.log")
             log_file_path = self.stats_logs_path / log_filename
             
-            # Формируем запись статистики
-            stats_entry = f"{today.strftime('%d.%m.%Y')} новых файлов {new_files}, дублей {duplicates}\n"
+            # Формируем запись статистики (шапка)
+            stats_lines = [f"{today.strftime('%d.%m.%Y')} новых файлов {new_files}, дублей {duplicates}"]
+            
+            # Добавляем поименные списки, если переданы
+            if new_names:
+                stats_lines.append("Новые файлы:")
+                stats_lines.extend([f"  - {name}" for name in new_names])
+            if dup_names:
+                stats_lines.append("Дубли:")
+                stats_lines.extend([f"  - {name}" for name in dup_names])
+            
+            stats_entry = "\n".join(stats_lines) + "\n"
             
             # Перезаписываем файл (каждый день новый файл, в течение дня перезаписываем)
             with open(log_file_path, 'w', encoding='utf-8') as f:
@@ -129,10 +146,20 @@ class PhotoStatsManager:
         
         try:
             # Получаем количество новых файлов и дублей за сегодня
-            new_files, duplicates = self.get_files_added_today()
+            new_files, duplicates, new_names, dup_names = self.get_files_added_today()
             
-            # Записываем статистику в лог
-            self.write_daily_stats(new_files, duplicates)
+            # Записываем статистику в лог (включая списки файлов)
+            self.write_daily_stats(new_files, duplicates, new_names, dup_names)
+
+            # Поименно выводим списки файлов, если они есть
+            if new_names:
+                gb.rc.print("🆕 Новые файлы:", style="blue")
+                for name in new_names:
+                    gb.rc.print(f"  - {name}", style="blue")
+            if dup_names:
+                gb.rc.print("♻️ Дубли:", style="yellow")
+                for name in dup_names:
+                    gb.rc.print(f"  - {name}", style="yellow")
             
             gb.rc.print(f"✅ Статистика собрана: новых файлов {new_files}, дублей {duplicates}", style="green")
             
