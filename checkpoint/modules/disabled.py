@@ -119,7 +119,11 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
     media_manager.start_monitor()
     
     # Инициализируем и запускаем менеджер статистики
-    stats_logs_path = download_folder / fs.path['stats_logs_dir']
+    # Размещаем папку stats_logs в корне проекта (рядом с папкой logs)
+    current_file = Path(__file__)
+    project_root = current_file.parent.parent.parent  # checkpoint/modules/disabled.py -> CheckPoint/
+    stats_logs_path = project_root / fs.path['stats_logs_dir']
+    stats_logs_path.mkdir(parents=True, exist_ok=True)
     gb.rc.print(f"📊 Логи статистики будут сохраняться в: {stats_logs_path}", style="blue")
     stats_manager = PhotoStatsManager(root_folder, stats_logs_path)
     stats_manager.start_monitor()
@@ -152,8 +156,8 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
                 get_page_title(driver)
                 await login.check_and_login(driver)
 
-            allowed_pages.remove('download_ready')
-            allowed_pages.append('download_ready')
+            #allowed_pages.remove('download_ready')
+            #allowed_pages.append('download_ready')
             if 'download_ready' in allowed_pages and check_page(driver, 'download_ready'):
                 get_page_title(driver)
                 handle_download_ready(driver, download_folder)
