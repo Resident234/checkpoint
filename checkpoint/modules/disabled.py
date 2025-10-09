@@ -125,7 +125,7 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
     stats_logs_path = project_root / fs.path['stats_logs_dir']
     stats_logs_path.mkdir(parents=True, exist_ok=True)
     gb.rc.print(f"📊 Логи статистики будут сохраняться в: {stats_logs_path}", style="blue")
-    stats_manager = PhotoStatsManager(root_folder, stats_logs_path)
+    stats_manager = PhotoStatsManager(root_folder, stats_logs_path, send_email=True)
     stats_manager.start_monitor()
     
     # Загружаем allowed_pages из JSON файла или используем значения по умолчанию
@@ -148,7 +148,7 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
                     allowed_pages.append('download_ready')
                     save_allowed_pages(allowed_pages)
 
-            if 'creation_backup_is_processing' in allowed_pages and check_page(driver, 'creation_backup_is_processing'): #todo вывод в консоль текущего теста со страницы
+            if 'creation_backup_is_processing' in allowed_pages and check_page(driver, 'creation_backup_is_processing'):
                 get_page_title(driver)
                 sleep(pauses.download['backup_processing'], "Ожидание обработки бэкапа")
 

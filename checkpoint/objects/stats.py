@@ -8,6 +8,8 @@ from typing import Dict, Tuple, List, Optional
 from checkpoint import globals as gb
 from checkpoint.knowledge import pauses
 from checkpoint.helpers.utils import sleep
+from checkpoint.helpers.email import send_notification_email
+from checkpoint import config
 
 
 class PhotoStatsManager:
@@ -21,16 +23,20 @@ class PhotoStatsManager:
     - Запись статистики в ежедневные лог-файлы
     """
     
-    def __init__(self, photo_path: Path, stats_logs_path: Path):
+    def __init__(self, photo_path: Path, stats_logs_path: Path, send_email: bool = False, email_to: Optional[str] = None):
         """
         Инициализация менеджера статистики
         
         Args:
             photo_path: Путь к папке PHOTO
             stats_logs_path: Путь к папке для логов статистики
+            send_email: Отправлять ли статистику на email автоматически
+            email_to: Email получателя (по умолчанию из config.NOTIFY_EMAIL)
         """
         self.photo_path = photo_path
         self.stats_logs_path = stats_logs_path
+        self.send_email = send_email
+        self.email_to = email_to
         self.monitor_running = False
         self.monitor_thread = None
         
@@ -179,9 +185,94 @@ class PhotoStatsManager:
         except Exception as e:
             gb.rc.print(f"❌ Ошибка при выводе списков файлов: {e}", style="red")
     
+    def send_stats_email(
+        self, 
+        to_email: str,
+        new_files: int, 
+        duplicates: int, 
+        new_names: Optional[List[str]] = None, 
+        dup_names: Optional[List[str]] = None
+    ) -> bool:
+        """
+        Отправляет статистику на email
+        
+        Args:
+            to_email: Email получателя
+            new_files: Количество новых файлов
+            duplicates: Количество дублей
+            new_names: Список имен новых файлов
+            dup_names: Список имен дублированных файлов
+            
+        Returns:
+            bool: True если email успешно отправлен
+        """
+        try:
+            current_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+            today_date = datetime.now().strftime("%d.%m.%Y")
+            
+            subject = f"CheckPoint: Статистика файлов за {today_date}"
+            
+            # Формируем основную статистику
+            message_lines = [
+                "Ежедневная статистика файлов CheckPoint",
+                "",
+                f"Дата: {today_date}",
+                f"Время отчета: {current_time}",
+                f"Папка мониторинга: {self.photo_path}",
+                "",
+                "📊 СТАТИСТИКА:",
+                f"🆕 Новых файлов: {new_files}",
+                f"♻️ Дублированных файлов: {duplicates}",
+                f"📁 Всего обработано: {new_files + duplicates}",
+                ""
+            ]
+            
+            # Добавляем списки файлов, если они есть
+            if new_names and len(new_names) > 0:
+                message_lines.extend([
+                    "🆕 НОВЫЕ ФАЙЛЫ:",
+                    ""
+                ])
+                for i, name in enumerate(new_names, 1):
+                    message_lines.append(f"{i:3d}. {name}")
+                message_lines.append("")
+            
+            if dup_names and len(dup_names) > 0:
+                message_lines.extend([
+                    "♻️ ДУБЛИРОВАННЫЕ ФАЙЛЫ:",
+                    ""
+                ])
+                for i, name in enumerate(dup_names, 1):
+                    message_lines.append(f"{i:3d}. {name}")
+                message_lines.append("")
+            
+            # Завершаем сообщение
+            message_lines.extend([
+                "---",
+                "Это автоматический отчет от CheckPoint",
+                f"Логи сохранены в: {self.stats_logs_path}"
+            ])
+            
+            message = "\n".join(message_lines)
+            
+            # Отправляем email
+            success = send_notification_email(to_email, subject, message)
+            
+            if success:
+                gb.rc.print(f"📧 Статистика отправлена на email {to_email}", style="green")
+            else:
+                gb.rc.print(f"❌ Ошибка отправки статистики на email {to_email}", style="red")
+                
+            return success
+            
+        except Exception as e:
+            gb.rc.print(f"❌ Ошибка при отправке статистики на email: {e}", style="red")
+            return False
+    
     def collect_and_log_stats(self) -> None:
         """
         Собирает статистику и записывает в лог
+        Отправка email определяется настройками конструктора
         """
         gb.rc.print(f"📊 Начинаем сбор статистики файлов {self.photo_path}...", style="blue")
         
@@ -195,14 +286,69 @@ class PhotoStatsManager:
             # Выводим статистику в консоль
             self.print_daily_stats(new_files, duplicates, new_names, dup_names)
             
+            # Отправляем по email, если требуется
+            if self.send_email:
+                # Определяем email получателя
+                recipient_email = self.email_to or config.NOTIFY_EMAIL
+                if recipient_email:
+                    self.send_stats_email(recipient_email, new_files, duplicates, new_names, dup_names)
+                else:
+                    gb.rc.print("⚠️ Email получатель не указан. Проверьте config.NOTIFY_EMAIL", style="yellow")
+            
         except Exception as e:
             gb.rc.print(f"❌ Ошибка при сборе статистики: {e}", style="red")
+    
+    def send_current_stats_email(self, email_to: Optional[str] = None) -> bool:
+        """
+        Отправляет текущую статистику на email
+        
+        Args:
+            email_to: Email получателя (по умолчанию из config.NOTIFY_EMAIL)
+            
+        Returns:
+            bool: True если email успешно отправлен
+        """
+        try:
+            gb.rc.print("📧 Подготовка статистики для отправки на email...", style="blue")
+            
+            # Получаем статистику
+            new_files, duplicates, new_names, dup_names = self.get_files_added_today()
+            
+            # Определяем email получателя
+            recipient_email = email_to or config.NOTIFY_EMAIL
+            if not recipient_email:
+                gb.rc.print("❌ Email получатель не указан. Проверьте config.NOTIFY_EMAIL", style="red")
+                return False
+            
+            # Отправляем email
+            return self.send_stats_email(recipient_email, new_files, duplicates, new_names, dup_names)
+            
+        except Exception as e:
+            gb.rc.print(f"❌ Ошибка при отправке статистики на email: {e}", style="red")
+            return False
+    
+    def collect_and_email_stats(self) -> None:
+        """
+        Собирает статистику, записывает в лог и отправляет на email
+        Примечание: Настройки email берутся из конструктора
+        """
+        # Временно включаем email для этого вызова
+        original_send_email = self.send_email
+        self.send_email = True
+        try:
+            self.collect_and_log_stats()
+        finally:
+            self.send_email = original_send_email
     
     def monitor_photo_stats(self) -> None:
         """
         Мониторит статистику файлов каждый час
+        Настройки email берутся из конструктора
         """
         gb.rc.print(f"📊 Запущен мониторинг статистики в {self.photo_path}", style="blue")
+        if self.send_email:
+            recipient = self.email_to or config.NOTIFY_EMAIL
+            gb.rc.print(f"📧 Email уведомления: включены на {recipient}", style="blue")
         
         while self.monitor_running:
             try:
@@ -221,6 +367,7 @@ class PhotoStatsManager:
     def start_monitor(self) -> None:
         """
         Запускает поток мониторинга статистики
+        Настройки email берутся из конструктора
         """
         if not self.monitor_running:
             self.monitor_running = True
