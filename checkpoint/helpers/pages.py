@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from checkpoint import globals as gb
 from checkpoint.helpers.utils import print_function_name
-from checkpoint.helpers.temp_dir import get_temp_path
+from checkpoint.helpers.fs import get_temp_path
 from checkpoint.knowledge import fs, pages
 
 WAIT_TIMEOUT = 3

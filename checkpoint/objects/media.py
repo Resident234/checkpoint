@@ -8,6 +8,7 @@ from typing import Set
 from checkpoint import globals as gb
 from checkpoint.knowledge import pauses
 from checkpoint.helpers.utils import sleep
+from checkpoint.helpers.fs import get_unique_filename, merge_directories, clean_folder_name
 
 
 class MediaManager:
@@ -35,77 +36,6 @@ class MediaManager:
         self.monitor_thread = None
         self.processed_folders: Set[str] = set()
     
-    def clean_folder_name(self, folder_name: str) -> str:
-        """
-        Очищает имя папки от случайного суффикса
-        
-        Args:
-            folder_name: Исходное имя папки (например, "2016Novorossijsk_1GrOsmhKAQ")
-            
-        Returns:
-            str: Очищенное имя папки (например, "2016Novorossijsk")
-        """
-        # Паттерн для поиска случайного суффикса: подчеркивание + случайные символы в конце
-        pattern = r'_[A-Za-z0-9]+$'
-        cleaned_name = re.sub(pattern, '', folder_name)
-        return cleaned_name
-    
-    def merge_directories(self, src_dir: Path, dst_dir: Path) -> None:
-        """
-        Объединяет содержимое двух директорий, разрешая конфликты имен
-        
-        Args:
-            src_dir: Исходная директория
-            dst_dir: Целевая директория
-        """
-        for item in src_dir.iterdir():
-            target_item = dst_dir / item.name
-            
-            if item.is_file():
-                if target_item.exists():
-                    # Файл существует, создаем уникальное имя
-                    unique_target = self.get_unique_filename(target_item)
-                    shutil.move(str(item), str(unique_target))
-                    gb.rc.print(f"📄 Файл переименован: {item.name} → {unique_target.name}", style="yellow")
-                else:
-                    shutil.move(str(item), str(target_item))
-            elif item.is_dir():
-                if target_item.exists():
-                    # Директория существует, объединяем содержимое
-                    gb.rc.print(f"📁 Объединение папок: {item.name}", style="cyan")
-                    self.merge_directories(item, target_item)
-                    shutil.rmtree(str(item))
-                else:
-                    shutil.move(str(item), str(target_item))
-                    if item.exists():
-                        shutil.rmtree(str(item))
-                        gb.rc.print(f"🗑️ Исходная папка удалена: {item.name}", style="cyan")
-    
-    def get_unique_filename(self, target_path: Path) -> Path:
-        """
-        Генерирует уникальное имя файла, добавляя число к имени при конфликте
-        
-        Args:
-            target_path: Путь к целевому файлу
-            
-        Returns:
-            Path: Уникальный путь к файлу
-        """
-        if not target_path.exists():
-            return target_path
-        
-        counter = 1
-        stem = target_path.stem
-        suffix = target_path.suffix
-        parent = target_path.parent
-        
-        while True:
-            new_name = f"{stem}_{counter}{suffix}"
-            new_path = parent / new_name
-            if not new_path.exists():
-                return new_path
-            counter += 1
-    
     def process_folder(self, folder_path: Path) -> bool:
         """
         Обрабатывает отдельную папку: переименовывает и перемещает в PHOTO
@@ -118,7 +48,7 @@ class MediaManager:
         """
         try:
             original_name = folder_path.name
-            cleaned_name = self.clean_folder_name(original_name)
+            cleaned_name = clean_folder_name(original_name)
             
             # Если имя не изменилось, значит суффикса не было
             if original_name == cleaned_name:
@@ -132,7 +62,7 @@ class MediaManager:
                 if new_folder_path.exists():
                     # Папка с таким именем уже существует, объединяем
                     gb.rc.print(f"📁 Объединение с существующей папкой: {cleaned_name}", style="yellow")
-                    self.merge_directories(folder_path, new_folder_path)
+                    merge_directories(folder_path, new_folder_path)
                     if folder_path.exists():
                         shutil.rmtree(str(folder_path))
                         gb.rc.print(f"🗑️ Исходная папка удалена: {folder_path.name}", style="cyan")
@@ -151,7 +81,7 @@ class MediaManager:
             if photo_target.exists():
                 # Папка уже существует в PHOTO, объединяем
                 gb.rc.print(f"📁 Объединение с папкой в {self.photo_path}: {folder_path.name}", style="yellow")
-                self.merge_directories(folder_path, photo_target)
+                merge_directories(folder_path, photo_target)
                 # Удаляем исходную папку после объединения
                 if folder_path.exists():
                     shutil.rmtree(str(folder_path))

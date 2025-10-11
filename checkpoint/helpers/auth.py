@@ -12,7 +12,7 @@ from selenium.webdriver import Keys
 
 from checkpoint import config
 from checkpoint.errors import *
-from checkpoint.helpers.temp_dir import get_temp_path
+from checkpoint.helpers.fs import get_temp_path
 from checkpoint.helpers.captha import *
 from checkpoint.helpers.pages import *
 from checkpoint.helpers.utils import *

@@ -9,6 +9,7 @@ from checkpoint import globals as gb
 from checkpoint.knowledge import pauses
 from checkpoint.knowledge.fs import path as fs_path
 from checkpoint.helpers.utils import sleep
+from checkpoint.helpers.fs import get_unique_filename, merge_directories
 
 
 class ArchiveManager:
@@ -35,58 +36,9 @@ class ArchiveManager:
         self.monitor_thread = None
         self.processed_files: Set[str] = set()
     
-    def get_unique_filename(self, target_path: Path) -> Path:
-        """
-        Генерирует уникальное имя файла, добавляя число к имени при конфликте
-        
-        Args:
-            target_path: Путь к целевому файлу
-            
-        Returns:
-            Path: Уникальный путь к файлу
-        """
-        if not target_path.exists():
-            return target_path
-        
-        counter = 1
-        stem = target_path.stem
-        suffix = target_path.suffix
-        parent = target_path.parent
-        
-        while True:
-            new_name = f"{stem}_{counter}{suffix}"
-            new_path = parent / new_name
-            if not new_path.exists():
-                return new_path
-            counter += 1
+    # get_unique_filename method moved to checkpoint.helpers.fs for centralized file utilities
     
-    def merge_directories(self, src_dir: Path, dst_dir: Path) -> None:
-        """
-        Объединяет содержимое двух директорий, разрешая конфликты имен
-        
-        Args:
-            src_dir: Исходная директория
-            dst_dir: Целевая директория
-        """
-        for item in src_dir.iterdir():
-            target_item = dst_dir / item.name
-            
-            if item.is_file():
-                if target_item.exists():
-                    # Файл существует, создаем уникальное имя
-                    unique_target = self.get_unique_filename(target_item)
-                    shutil.move(str(item), str(unique_target))
-                    gb.rc.print(f"📄 Файл переименован: {item.name} → {unique_target.name}", style="yellow")
-                else:
-                    shutil.move(str(item), str(target_item))
-            elif item.is_dir():
-                if target_item.exists():
-                    # Директория существует, объединяем содержимое
-                    gb.rc.print(f"📁 Объединение папок: {item.name}", style="cyan")
-                    self.merge_directories(item, target_item)
-                    shutil.rmtree(str(item))
-                else:
-                    shutil.move(str(item), str(target_item))
+    # merge_directories method moved to checkpoint.helpers.fs for centralized file utilities
     
     def extract_zip_archive(self, zip_path: Path) -> bool:
         """
@@ -115,7 +67,7 @@ class ArchiveManager:
                 
                 if item.is_file():
                     if target_item.exists():
-                        unique_target = self.get_unique_filename(target_item)
+                        unique_target = get_unique_filename(target_item)
                         shutil.move(str(item), str(unique_target))
                         gb.rc.print(f"📄 Файл переименован: {item.name} → {unique_target.name}", style="yellow")
                     else:
@@ -123,7 +75,7 @@ class ArchiveManager:
                 elif item.is_dir():
                     if target_item.exists():
                         gb.rc.print(f"📁 Объединение папок: {item.name}", style="cyan")
-                        self.merge_directories(item, target_item)
+                        merge_directories(item, target_item)
                     else:
                         shutil.move(str(item), str(target_item))
             
@@ -137,7 +89,7 @@ class ArchiveManager:
             
             # Если файл с таким именем уже существует в to_delete, создаем уникальное имя
             if archive_target.exists():
-                archive_target = self.get_unique_filename(archive_target)
+                archive_target = get_unique_filename(archive_target)
             
             shutil.move(str(zip_path), str(archive_target))
             gb.rc.print(f"✅ Архив обработан и перемещен: {zip_path.name} → {archive_target.name}", style="green")

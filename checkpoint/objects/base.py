@@ -9,7 +9,7 @@ from threading import Thread
 from rich.console import Console
 
 from selenium.common import InvalidCookieDomainException
-from checkpoint.helpers.temp_dir import get_temp_path
+from checkpoint.helpers.fs import get_temp_path
 
 
 
