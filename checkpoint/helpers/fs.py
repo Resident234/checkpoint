@@ -226,6 +226,8 @@ def find_duplicates_by_filename(
 def get_unique_filename(target_path: Path) -> Path:
     """
     Генерирует уникальное имя файла, добавляя число к имени при конфликте
+    Если исходный файл уже является дублем (имеет номер в конце),
+    счетчик начинается с этого номера + 1
     
     Args:
         target_path: Путь к целевому файлу
@@ -236,13 +238,26 @@ def get_unique_filename(target_path: Path) -> Path:
     if not target_path.exists():
         return target_path
     
-    counter = 1
     stem = target_path.stem
     suffix = target_path.suffix
     parent = target_path.parent
     
+    # Проверяем, является ли исходный файл уже дублем (имеет суффикс _число)
+    duplicate_pattern = r'_(\d+)$'
+    match = re.search(duplicate_pattern, stem)
+    
+    if match:
+        # Исходный файл уже дубль, извлекаем базовое имя и номер
+        existing_number = int(match.group(1))
+        base_stem = stem[:match.start()]  # Имя без суффикса _число
+        counter = existing_number + 1
+    else:
+        # Исходный файл не дубль, используем полное имя как базу
+        base_stem = stem
+        counter = 1
+    
     while True:
-        new_name = f"{stem}_{counter}{suffix}"
+        new_name = f"{base_stem}_{counter}{suffix}"
         new_path = parent / new_name
         if not new_path.exists():
             return new_path
