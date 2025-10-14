@@ -6,6 +6,9 @@ from rich.console import Console
 import os
 from checkpoint.objects.base import DualConsole
 
+# Глобальная переменная для хранения имени текущего модуля
+current_module_name: str = "Unknown"
+
 
 
 def init_globals():
@@ -24,7 +27,7 @@ def cleanup_globals():
         rc.close()
 
 
-def add_global(name: str, value: any):
+def add_global(name: str, value: Any):
     """Add a new global variable that can be accessed from anywhere in the application.
 
     Args:

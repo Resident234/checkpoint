@@ -15,6 +15,9 @@ from selenium.webdriver.chrome.webdriver import WebDriver
 async def check_and_login(driver: WebDriver = None, renewcookie: bool=False) -> None:
     """Check the users credentials validity, and generate new ones."""
 
+    # Устанавливаем имя текущего модуля
+    gb.current_module_name = "login"
+
     checkpoint_creds = CheckPointCreds()
 
     if renewcookie:

@@ -1,11 +1,16 @@
 import pickle
+from types import FrameType
 from typing import *
 from pathlib import Path
 from datetime import datetime
 import os
-
+import threading
+import inspect
+from typing import TextIO
 
 from threading import Thread
+from typing import Any
+from typing import Literal, LiteralString
 from rich.console import Console
 
 from selenium.common import InvalidCookieDomainException
@@ -23,7 +28,7 @@ class Inp:
     inp = None
 
     def __init__(self, hint=None):
-        t = Thread(target=self.get_input, args=(hint,))
+        t = Thread(target=self.get_input, args=(hint,), name="UserInputThread")
         t.daemon = True
         t.start()
         t.join(timeout=500)
@@ -132,28 +137,28 @@ class DualConsole:
     
     def __init__(self, highlight=True):
         # Основная консоль для терминала
-        self.console = Console(highlight=highlight)
+        self.console: Any = Console(highlight=highlight)
         
         # Создаем директорию для логов в корне проекта (рядом с папкой checkpoint)
-        current_file = Path(__file__)
-        project_root = current_file.parent.parent.parent  # checkpoint/objects/base.py -> CheckPoint/
-        self.log_dir = project_root / "logs"
+        current_file: Path = Path(__file__)
+        project_root: Path = current_file.parent.parent.parent  # checkpoint/objects/base.py -> CheckPoint/
+        self.log_dir: Path = project_root / "logs"
         self.log_dir.mkdir(exist_ok=True)
         
         # Создаем файл лога с текущей датой и временем
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.log_file_path = self.log_dir / f"checkpoint_{timestamp}.log"
+        timestamp: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.log_file_path: Path = self.log_dir / f"checkpoint_{timestamp}.log"
         
         # Консоль для файла (без стилей для читаемости)
-        self.log_file = open(self.log_file_path, "w", encoding="utf-8")
-        self.file_console = Console(file=self.log_file, highlight=False, width=120)
+        self.log_file: TextIO = open(self.log_file_path, "w", encoding="utf-8")
+        self.file_console: Any = Console(file=self.log_file, highlight=False, width=120)
         
         # Записываем заголовок в лог
         self._log_header()
     
     def _log_header(self):
         """Записывает заголовок в лог файл"""
-        header = f"""
+        header: str = f"""
 {'='*80}
 CheckPoint Application Log
 Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -162,20 +167,58 @@ Log file: {self.log_file_path}
 """
         self.file_console.print(header)
     
-    def print(self, *args, **kwargs):
-        """Выводит сообщение и в консоль, и в лог файл"""
-        # Вывод в терминал
-        self.console.print(*args, **kwargs)
+    def _get_thread_module_prefix(self) -> LiteralString | Literal['']:
+        """Получает префикс для потока и модуля"""
+        # Получаем информацию о текущем потоке
+        current_thread: Thread = threading.current_thread()
+        thread_name: str = current_thread.name
         
-        # Вывод в файл с временной меткой
-        timestamp = datetime.now().strftime("%H:%M:%S")
+        # Получаем имя модуля из глобальной переменной
+        try:
+            from checkpoint import globals as gb
+            module_name = gb.current_module_name
+        except:
+            module_name = "Unknown"
+        
+        # Формируем префикс
+        prefix_parts = []
+        
+        # Добавляем имя потока, если это не MainThread
+        if thread_name != "MainThread":
+            prefix_parts.append(f"T:{thread_name}")
+        
+        # Добавляем имя модуля
+        if module_name != "Unknown":
+            prefix_parts.append(f"M:{module_name}")
+        
+        if prefix_parts:
+            return f"[{' | '.join(prefix_parts)}] "
+        return ""
+    
+    def print(self, *args, **kwargs):
+        """Выводит сообщение и в консоль, и в лог файл с префиксами потока и модуля"""
+        # Получаем префикс для потока и модуля
+        thread_module_prefix: LiteralString | Literal[''] = self._get_thread_module_prefix()
+        
+        # Подготавливаем аргументы с префиксом для терминала
         if args:
-            # Добавляем временную метку к первому аргументу
-            first_arg = f"[{timestamp}] {args[0]}"
-            file_args = (first_arg,) + args[1:]
+            prefixed_first_arg: str = f"{thread_module_prefix}{args[0]}"
+            terminal_args: tuple[LiteralString | Literal['']] = (prefixed_first_arg,) + args[1:]
+        else:
+            terminal_args: tuple[LiteralString | Literal['']] = (thread_module_prefix,)
+        
+        # Вывод в терминал с префиксом
+        self.console.print(*terminal_args, **kwargs)
+        
+        # Вывод в файл с временной меткой и префиксом
+        timestamp: str = datetime.now().strftime("%H:%M:%S")
+        if args:
+            # Добавляем временную метку и префикс к первому аргументу
+            first_arg: str = f"[{timestamp}] {thread_module_prefix}{args[0]}"
+            file_args: tuple[str, *tuple[Any, ...]] = (first_arg,) + args[1:]
             self.file_console.print(*file_args, **kwargs)
         else:
-            self.file_console.print(f"[{timestamp}]", **kwargs)
+            self.file_console.print(f"[{timestamp}] {thread_module_prefix}", **kwargs)
     
     def close(self):
         """Закрывает лог файл"""
