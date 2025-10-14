@@ -47,7 +47,7 @@ upload = {
 
 # Photo statistics monitoring pauses
 stats = {
-    'hourly_check': 3600,      # Проверка статистики каждый час (3600 секунд)
+    'hourly_check': 3600 * 3,      # Проверка статистики
     'error_recovery': 300,     # Пауза при ошибке в сборе статистики (5 минут)
 }
 
