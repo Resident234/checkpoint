@@ -3,8 +3,10 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 
 from checkpoint import globals as gb
+from checkpoint.helpers.utils import print_function_name
 
 
+@print_function_name
 def check_popup(driver: WebDriver, popup_type: str) -> bool:
     """
     Проверяет наличие различных типов всплывающих окон
