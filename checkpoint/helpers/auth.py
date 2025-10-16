@@ -313,8 +313,8 @@ def two_step_verification_wait(driver: WebDriver):
                 threads_stop_event.set()
         
         # Запускаем оба потока
-        habr_thread = threading.Thread(target=parse_code, daemon=True)
-        console_thread = threading.Thread(target=console_input, daemon=True)
+        habr_thread = threading.Thread(target=parse_code, daemon=True, name="VerificationCodeParserThread")
+        console_thread = threading.Thread(target=console_input, daemon=True, name="VerificationCodeInputThread")
         
         habr_thread.start()
         console_thread.start()

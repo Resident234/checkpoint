@@ -35,11 +35,7 @@ class ArchiveManager:
         self.monitor_running = False
         self.monitor_thread = None
         self.processed_files: Set[str] = set()
-    
-    # get_unique_filename method moved to checkpoint.helpers.fs for centralized file utilities
-    
-    # merge_directories method moved to checkpoint.helpers.fs for centralized file utilities
-    
+
     def extract_zip_archive(self, zip_path: Path) -> bool:
         """
         Извлекает ZIP архив и перемещает его в папку to_delete
@@ -105,33 +101,58 @@ class ArchiveManager:
         Мониторит папку загрузок на наличие ZIP файлов и обрабатывает их
         """
         gb.rc.print(f"🔍 Запущен мониторинг ZIP файлов в: {self.download_path}", style="blue")
-        
+        task_name = "ArchiveManager"
+
         while self.monitor_running:
             try:
+                # Проверяем глобальную переменную синхронизации перед началом работы
+                if not gb.task_sync.can_run_task(task_name):
+                    # Другой таск уже выполняется, пропускаем этот цикл
+                    gb.rc.print(f"⏸️ ArchiveManager: ожидание завершения {gb.task_sync.get_current_running_task()}", style="yellow")
+                    sleep(pauses.archive['monitor_cycle'], "Пауза - ожидание освобождения таска")
+                    continue
+
+                # Устанавливаем себя как активный таск
+                if not gb.task_sync.is_task_running():
+                    gb.task_sync.set_current_running_task(task_name)
+                    gb.rc.print(f"▶️ ArchiveManager: начало выполнения", style="green")
+
                 # Ищем все ZIP файлы в папке загрузок
                 zip_files = list(self.download_path.glob("*.zip"))
-                
+
                 for zip_file in zip_files:
                     # Проверяем, не обрабатывали ли мы уже этот файл
                     if zip_file.name not in self.processed_files:
                         # Проверяем, что файл полностью загружен (не изменяется)
                         initial_size = zip_file.stat().st_size
                         sleep(pauses.archive['file_stability_check'], "Проверка стабильности размера ZIP файла")
-                        
+
                         if zip_file.exists() and zip_file.stat().st_size == initial_size:
                             # Файл стабилен, можно обрабатывать
                             if self.extract_zip_archive(zip_file):
                                 self.processed_files.add(zip_file.name)
                         else:
                             gb.rc.print(f"⏳ Файл {zip_file.name} еще загружается...", style="yellow")
-                
+
+                # Освобождаем глобальную переменную перед паузой
+                if gb.task_sync.is_task_running(task_name):
+                    gb.task_sync.set_current_running_task(None)
+                    gb.rc.print(f"⏸️ ArchiveManager: переход в паузу", style="cyan")
+
                 # Пауза между проверками
                 sleep(pauses.archive['monitor_cycle'], "Пауза между циклами мониторинга ZIP файлов")
-                
+
             except Exception as e:
                 gb.rc.print(f"❌ Ошибка в мониторе ZIP файлов: {e}", style="red")
-                sleep(pauses.archive['error_recovery'], "Восстановление после ошибки в мониторинге")  # Увеличенная пауза при ошибке
-        
+                # Освобождаем глобальную переменную при ошибке
+                if gb.task_sync.is_task_running(task_name):
+                    gb.task_sync.set_current_running_task(None)
+                sleep(pauses.archive['error_recovery'], "Восстановление после ошибки в мониторинге")
+
+        # Освобождаем глобальную переменную при завершении работы
+        if gb.task_sync.is_task_running(task_name):
+            gb.task_sync.set_current_running_task(None)
+
         gb.rc.print("🛑 Мониторинг ZIP файлов остановлен", style="red")
     
     def start_monitor(self) -> None:

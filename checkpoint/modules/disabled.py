@@ -81,7 +81,6 @@ def handle_download_ready(driver: WebDriver, download_folder: Path) -> None:
         pass
 
 
-#todo Добавить синхрон между менеджером архивов и медиа
 async def run(driver: WebDriver = None, download_path: str = None, root_folder: str = None):
     # Устанавливаем имя текущего модуля
     gb.current_module_name = "disabled"

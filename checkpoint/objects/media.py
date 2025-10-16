@@ -106,35 +106,60 @@ class MediaManager:
         Мониторит папку медиа и обрабатывает новые папки
         """
         gb.rc.print(f"🔍 Запущен мониторинг медиа папок в: {self.media_path}", style="blue")
-        
+        task_name = "MediaManager"
+
         while self.monitor_running:
             try:
+                # Проверяем глобальную переменную синхронизации перед началом работы
+                if not gb.task_sync.can_run_task(task_name):
+                    # Другой таск уже выполняется, пропускаем этот цикл
+                    gb.rc.print(f"⏸️ MediaManager: ожидание завершения {gb.task_sync.get_current_running_task()}", style="yellow")
+                    sleep(pauses.media['folder_scan'], "Пауза - ожидание освобождения таска")
+                    continue
+
                 if not self.media_path.exists():
                     gb.rc.print(f"⚠️ Папка медиа не найдена: {self.media_path}", style="yellow")
                     sleep(pauses.media['folder_scan'], "Ожидание появления папки медиа")
                     continue
-                
+
+                # Устанавливаем себя как активный таск
+                if not gb.task_sync.is_task_running():
+                    gb.task_sync.set_current_running_task(task_name)
+                    gb.rc.print(f"▶️ MediaManager: начало выполнения", style="green")
+
                 # Ищем все папки в директории медиа
                 media_folders = [item for item in self.media_path.iterdir() if item.is_dir()]
-                
+
                 for folder in media_folders:
                     # Проверяем, не обрабатывали ли мы уже эту папку
                     if folder.name not in self.processed_folders:
                         gb.rc.print(f"🆕 Найдена новая папка для обработки: {folder.name}", style="cyan")
-                        
+
                         if self.process_folder(folder):
                             self.processed_folders.add(folder.name)
-                        
+
                         # Пауза между обработкой папок
                         sleep(pauses.media['processing_cycle'], "Пауза между обработкой папок медиа")
-                
+
+                # Освобождаем глобальную переменную перед паузой
+                if gb.task_sync.is_task_running(task_name):
+                    gb.task_sync.set_current_running_task(None)
+                    gb.rc.print(f"⏸️ MediaManager: переход в паузу", style="cyan")
+
                 # Пауза между сканированием
                 sleep(pauses.media['folder_scan'], "Пауза между сканированием папок медиа")
-                
+
             except Exception as e:
                 gb.rc.print(f"❌ Ошибка в мониторе медиа папок: {e}", style="red")
+                # Освобождаем глобальную переменную при ошибке
+                if gb.task_sync.is_task_running(task_name):
+                    gb.task_sync.set_current_running_task(None)
                 sleep(pauses.media['error_recovery'], "Восстановление после ошибки в мониторинге медиа")
-        
+
+        # Освобождаем глобальную переменную при завершении работы
+        if gb.task_sync.is_task_running(task_name):
+            gb.task_sync.set_current_running_task(None)
+
         gb.rc.print("🛑 Мониторинг медиа папок остановлен", style="red")
     
     def start_monitor(self) -> None:
