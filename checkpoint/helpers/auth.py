@@ -263,10 +263,11 @@ def two_step_verification_wait(driver: WebDriver):
                     
                     # Парсим HTML
                     soup = BeautifulSoup(response.text, 'html.parser')
-                    meta_element = soup.find(class_=external.html['meta_selector'])
+                    # Ищем ссылку с href="/profile/specialization"
+                    link_element = soup.find('a', href='/profile/specialization')
                     
-                    if meta_element:
-                        text = meta_element.get_text(strip=True)
+                    if link_element:
+                        text = link_element.get_text(strip=True)
                         print(f"[DEBUG] Найденный текст: {text}")
                         
                         # Извлекаем 6-значное число
