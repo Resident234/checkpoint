@@ -263,33 +263,34 @@ def two_step_verification_wait(driver: WebDriver):
                     
                     # Парсим HTML
                     soup = BeautifulSoup(response.text, 'html.parser')
-                    # Ищем ссылку с href="/profile/specialization"
-                    link_element = soup.find('a', href='/profile/specialization')
+                    # Ищем все теги span
+                    spans = soup.find_all('span')
                     
-                    if link_element:
-                        text = link_element.get_text(strip=True)
-                        print(f"[DEBUG] Найденный текст: {text}")
-                        
-                        # Извлекаем 6-значное число
-                        code_match = re.search(r'\b\d{6}\b', text)
-                        if code_match:
-                            current_code = code_match.group()
+                    current_code = None
+                    for span in spans:
+                        text = span.get_text(strip=True)
+                        # Ищем паттерн "От <число с пробелами> ₽"
+                        salary_match = re.search(r'От\s+([\d\s]+)\s*₽', text)
+                        if salary_match:
+                            # Извлекаем число и удаляем все пробелы
+                            current_code = salary_match.group(1).replace(' ', '')
+                            print(f"[DEBUG] Найденный текст: {text}")
                             print(f"[DEBUG] Извлеченный код: {current_code}")
-                            
-                            # Сравниваем с предыдущим кодом
-                            if current_code != last_code:
-                                print(f"[INFO] Новый код найден: {current_code}")
-                                inp = current_code
-                                
-                                # Завершаем поток
-                                threads_stop_event.set()
-                                return
-                            else:
-                                print(f"[DEBUG] Код не изменился: {current_code}")
+                            break
+                    
+                    if current_code:
+                        # Сравниваем с предыдущим кодом
+                        if current_code != last_code:
+                            print(f"[INFO] Новый код найден: {current_code}")
+                            inp = current_code
+
+                            # Завершаем поток
+                            threads_stop_event.set()
+                            return
                         else:
-                            print("[DEBUG] 6-значный код не найден в тексте")
+                            print(f"[DEBUG] Код не изменился: {current_code}")
                     else:
-                        print(f"[DEBUG] Элемент с классом {external.html['meta_selector']} не найден")
+                        print(f"[DEBUG] Элемент с кодом подтверждения не найден")
                         
                 except Exception as e:
                     print(f"[ERROR] Ошибка при парсинге: {e}")
