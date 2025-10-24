@@ -16,11 +16,13 @@ from checkpoint.modules import login
 from checkpoint.objects.archive import ArchiveManager
 from checkpoint.objects.media import MediaManager
 from checkpoint.objects.stats import PhotoStatsManager
+from checkpoint.objects.cleanup import CleanupManager
 
 # Глобальные переменные для менеджеров
 archive_manager = None
 media_manager = None
 stats_manager = None
+cleanup_manager = None
 
 
 
@@ -108,7 +110,7 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
     gb.rc.print(f"📁 Файлы будут сохраняться в: {download_folder}", style="blue")
     
     # Инициализируем и запускаем менеджер архивов
-    global archive_manager, media_manager, stats_manager
+    global archive_manager, media_manager, stats_manager, cleanup_manager
     archive_manager = ArchiveManager(download_folder)
     archive_manager.start_monitor()
     
@@ -127,6 +129,11 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
     gb.rc.print(f"📊 Логи статистики будут сохраняться в: {stats_logs_path}", style="blue")
     stats_manager = PhotoStatsManager(root_folder, stats_logs_path, send_email=True)
     stats_manager.start_monitor()
+    
+    # Инициализируем и запускаем менеджер очистки
+    gb.rc.print(f"🧹 Мониторинг очистки файлов в: {download_folder}", style="blue")
+    cleanup_manager = CleanupManager(download_folder)
+    cleanup_manager.start_monitor()
     
     # Загружаем allowed_pages из JSON файла или используем значения по умолчанию
     allowed_pages = load_allowed_pages()
@@ -188,5 +195,9 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
         # Останавливаем мониторинг статистики при выходе
         if stats_manager:
             stats_manager.stop_monitor()
+        
+        # Останавливаем мониторинг очистки при выходе
+        if cleanup_manager:
+            cleanup_manager.stop_monitor()
 
 

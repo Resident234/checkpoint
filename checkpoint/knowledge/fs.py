@@ -14,3 +14,12 @@ files = {
     'verification_code_file': "verification_code.json",
     'allowed_pages_file': "allowed_pages.json",
 }
+
+# Конфигурация для CleanupManager
+cleanup = {
+    'file_patterns': [
+        'start_here.html',
+        'start_here_*.html',  # Паттерн для start_here_1.html, start_here_2.html и т.д.
+    ],
+    'folder_patterns': [],  # Можно добавить паттерны папок для удаления
+}
