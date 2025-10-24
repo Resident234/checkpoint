@@ -21,5 +21,10 @@ cleanup = {
         'start_here.html',
         'start_here_*.html',  # Паттерн для start_here_1.html, start_here_2.html и т.д.
     ],
-    'folder_patterns': [],  # Можно добавить паттерны папок для удаления
+    'folder_patterns': [
+        'ads_information',  # Папка с рекламной информацией
+        'apps_and_websites_off_of_facebook',
+        'security_and_login_information',
+        'files',
+    ],
 }
