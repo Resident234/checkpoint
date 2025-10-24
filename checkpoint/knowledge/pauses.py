@@ -36,7 +36,7 @@ archive = {
 # Media processing pauses
 media = {
     'folder_scan': 560,          # Пауза между сканированием папок медиа
-    'processing_cycle': 600,      # Пауза между обработкой отдельных папок
+    'processing_cycle': 6,      # Пауза между обработкой отдельных папок
     'error_recovery': 100,       # Пауза при ошибке в обработке медиа
 }
 
@@ -49,6 +49,12 @@ upload = {
 stats = {
     'hourly_check': 3600 * 3,      # Проверка статистики
     'error_recovery': 300,     # Пауза при ошибке в сборе статистики (5 минут)
+}
+
+# Cleanup monitoring pauses
+cleanup = {
+    'monitor_cycle': 3600,     # Пауза между циклами очистки (1 час)
+    'error_recovery': 300,     # Пауза при ошибке в очистке (5 минут)
 }
 
 # Throttling function delays (used in sleep_throttling)
