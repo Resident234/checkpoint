@@ -136,7 +136,7 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
     cleanup_manager.start_monitor()
     
     # Загружаем allowed_pages из JSON файла или используем значения по умолчанию
-    allowed_pages = load_allowed_pages()
+    allowed_pages = set(load_allowed_pages())
 
     try:
         while True:
@@ -152,8 +152,8 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
                 button = driver.find_element(By.XPATH, "//*[text()='Запросить файл']")
                 if button:
                     button.click()
-                    allowed_pages.append('download_ready')
-                    save_allowed_pages(allowed_pages)
+                    allowed_pages.add('download_ready')
+                    save_allowed_pages(list(allowed_pages))
 
             if 'creation_backup_is_processing' in allowed_pages and check_page(driver, 'creation_backup_is_processing'):
                 get_page_title(driver)
@@ -163,13 +163,11 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
                 get_page_title(driver)
                 await login.check_and_login(driver)
 
-            #allowed_pages.remove('download_ready')
-            #allowed_pages.append('download_ready')
             if 'download_ready' in allowed_pages and check_page(driver, 'download_ready'):
                 get_page_title(driver)
                 handle_download_ready(driver, download_folder)
-                allowed_pages.remove('download_ready')
-                save_allowed_pages(allowed_pages)
+                allowed_pages.discard('download_ready')
+                save_allowed_pages(list(allowed_pages))
 
             # Проверка на истечение времени сеанса
             if check_popup(driver, "session_timeout"):
