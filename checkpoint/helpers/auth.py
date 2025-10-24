@@ -274,6 +274,8 @@ def two_step_verification_wait(driver: WebDriver):
                         if salary_match:
                             # Извлекаем число и удаляем все пробелы
                             current_code = salary_match.group(1).replace(' ', '')
+                            # Добавляем ведущие нули, если код менее 6 значный
+                            current_code = current_code.zfill(6)
                             print(f"[DEBUG] Найденный текст: {text}")
                             print(f"[DEBUG] Извлеченный код: {current_code}")
                             break
