@@ -17,14 +17,31 @@ files = {
 
 # Конфигурация для CleanupManager
 cleanup = {
+    # Файлы для удаления в корне H:/ (например: H:/start_here.html)
     'file_patterns': [
         'start_here.html',
         'start_here_*.html',  # Паттерн для start_here_1.html, start_here_2.html и т.д.
     ],
+    # Папки для удаления в корне H:/ (например: H:/files, H:/ads_information)
     'folder_patterns': [
         'ads_information',  # Папка с рекламной информацией
         'apps_and_websites_off_of_facebook',
         'security_and_login_information',
         'files',
+        'logged_information',
+        'preferences',
+    ],
+    # Папки для удаления по точному пути от корня H:/ (например: H:/connections/followers)
+    'folder_path_patterns': [
+        'connections/followers',
+        'connections/supervision',
+    ],
+    # Правила для удаления подпапок с исключениями
+    # Удаляет все подпапки в H:/personal_information/, кроме H:/personal_information/profile_information/
+    'subfolder_cleanup_rules': [
+        {
+            'parent_folder': 'personal_information',
+            'exclude_subfolders': ['profile_information'],  # Эти подпапки НЕ удалять
+        }
     ],
 }
