@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 
 from checkpoint import globals as gb
 from checkpoint import config
-from checkpoint.helpers.pages import check_page, load_allowed_pages, save_allowed_pages, get_page_title
+from checkpoint.helpers.pages import check_page, load_allowed_pages, save_allowed_pages, get_page_title, check_browser_error
 from checkpoint.helpers.email import *
 from checkpoint.helpers.popups import check_popup
 from checkpoint.helpers.utils import sleep
@@ -172,6 +172,12 @@ async def run(driver: WebDriver = None, download_path: str = None, root_folder: 
             # Проверка на истечение времени сеанса
             if check_popup(driver, "session_timeout"):
                 gb.rc.print("🏠 Переходим на главную страницу из-за истечения сеанса", style="cyan")
+                driver.get(urls["home"])
+                continue
+
+            # Проверка на ошибку браузера
+            if check_browser_error(driver):
+                gb.rc.print("🏠 Переходим на главную страницу из-за ошибки браузера", style="cyan")
                 driver.get(urls["home"])
                 continue
 

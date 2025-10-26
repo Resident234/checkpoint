@@ -7,14 +7,17 @@ from pathlib import Path
 
 import httpx
 from bs4 import BeautifulSoup
-from selenium.common import NoSuchElementException
+from selenium.common import NoSuchElementException, TimeoutException
 from selenium.webdriver import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 from checkpoint import config
 from checkpoint.errors import *
 from checkpoint.helpers.fs import get_temp_path
 from checkpoint.helpers.captha import *
 from checkpoint.helpers.pages import *
+from checkpoint.helpers.popups import check_popup
 from checkpoint.helpers.utils import *
 from checkpoint.knowledge import external, fs, pauses, retries
 from checkpoint.knowledge.pages import urls
@@ -57,16 +60,33 @@ async def gen_cookies(driver: WebDriver, creds: CheckPointCreds):
 
         if check_page(driver, 'login'):
             login(driver, config.USER_NAME, config.PASSWORD)
+        
         if check_page(driver, 'captcha'):
             solve_captcha(driver)
+        
         if check_page(driver, 'two_step_verification'):
             two_step_verification_wait(driver)
+        
         if check_page(driver, 'add_trusted_device'):
             add_trusted_device(driver)
+        
         if check_page(driver, 'index'):
             break
+        
         if check_page(driver, 'authorized'):
             break
+
+        # Проверка на истечение времени сеанса
+        if check_popup(driver, "session_timeout"):
+            gb.rc.print("🏠 Переходим на главную страницу из-за истечения сеанса", style="cyan")
+            driver.get(urls["home"])
+            continue
+
+        # Проверка на ошибку браузера
+        if check_browser_error(driver):
+            gb.rc.print("🏠 Переходим на главную страницу из-за ошибки браузера", style="cyan")
+            driver.get(urls["home"])
+            continue
 
     creds.cookies = driver.get_cookies()
 
@@ -121,7 +141,20 @@ def _enter_verification_code(driver: WebDriver, inp: str) -> bool:
         elem.clear()
         elem.send_keys(inp)
         submit_button = driver.find_element(By.XPATH, VERIFICATION_SUBMIT_BUTTON_XPATH)
+        
+        # Сохраняем текущий URL перед отправкой формы
+        current_url = driver.current_url
         submit_button.click()
+        
+        # Ждем, пока URL изменится или кнопка исчезнет (форма обработается)
+        try:
+            WebDriverWait(driver, pauses.auth.get('verification_input', 10)).until(
+                lambda d: d.current_url != current_url or len(d.find_elements(By.XPATH, VERIFICATION_SUBMIT_BUTTON_XPATH)) == 0
+            )
+            print("[INFO] Форма верификации отправлена, страница обновилась")
+        except TimeoutException:
+            print("[WARNING] Таймаут ожидания обработки формы, продолжаем")
+        
         return True
     except NoSuchElementException as e:
         print(f"[ERROR] Не удалось найти элементы для ввода кода: {e}")
@@ -347,7 +380,7 @@ def two_step_verification_wait(driver: WebDriver):
         # Сохраняем код в JSON файл
         _save_code_to_json(json_file_path, inp)
 
-        # Вводим код верификации
+        # Вводим код верификации (функция теперь сама ждет завершения отправки формы)
         if not _enter_verification_code(driver, inp):
             if attempt < max_attempts:
                 print(f"[INFO] Код введен неудачно. Попытка {attempt + 1} из {max_attempts}")
@@ -356,9 +389,6 @@ def two_step_verification_wait(driver: WebDriver):
             else:
                 driver.close()
                 sys.exit('[ERROR] Код введен неудачно слишком много раз')
-        
-        # Ждем результата ввода кода
-        sleep(pauses.auth['verification_input'], "Ожидание после ввода кода верификации")
         
         # Проверяем, есть ли ошибка неправильного кода
         if not _check_verification_errors(driver):

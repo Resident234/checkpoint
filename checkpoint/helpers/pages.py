@@ -91,7 +91,7 @@ def check_page(driver: WebDriver, page: str) -> str | bool:
         case _:
             return False
 
-
+@print_function_name
 def load_allowed_pages():
     """Загружает allowed_pages из JSON файла или возвращает значения по умолчанию"""
     json_file_path = get_temp_path(fs.files['allowed_pages_file'])
@@ -111,7 +111,7 @@ def load_allowed_pages():
         gb.rc.print(f"📄 Файл allowed_pages не найден, используем значения по умолчанию", style="yellow")
         return pages.allowed_pages
 
-
+@print_function_name
 def save_allowed_pages(allowed_pages):
     """Сохраняет allowed_pages в JSON файл"""
     json_file_path = get_temp_path(fs.files['allowed_pages_file'])
@@ -124,6 +124,30 @@ def save_allowed_pages(allowed_pages):
     except Exception as e:
         gb.rc.print(f"❌ Ошибка при сохранении allowed_pages: {e}", style="red")
 
+@print_function_name
+def check_browser_error(driver: WebDriver) -> bool:
+    """
+    Проверяет наличие ошибки "Произошла ошибка" и "Попробуйте закрыть и открыть вновь окно браузера"
+    
+    Args:
+        driver: WebDriver instance
+        
+    Returns:
+        bool: True если обнаружена ошибка, False если нет
+    """
+    try:
+        # Проверяем наличие обоих текстов на странице
+        error_text = driver.find_elements(By.XPATH, "//*[contains(text(), 'Произошла ошибка')]")
+        browser_text = driver.find_elements(By.XPATH, "//*[contains(text(), 'Попробуйте закрыть и открыть вновь окно браузера')]")
+        
+        if error_text and browser_text:
+            gb.rc.print("⚠️ Обнаружена ошибка браузера на странице", style="yellow")
+            return True
+        return False
+    except Exception:
+        return False
+
+@print_function_name
 def get_page_title(driver: WebDriver):
     """
     Находит элемент с указанными CSS-свойствами и возвращает текст из него
