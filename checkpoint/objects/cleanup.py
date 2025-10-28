@@ -1,4 +1,5 @@
 import threading
+import time
 from pathlib import Path
 from typing import List, Set
 
@@ -33,6 +34,7 @@ class CleanupManager:
         self.folder_patterns = folder_patterns or cleanup_config['folder_patterns']
         self.folder_path_patterns = cleanup_config.get('folder_path_patterns', [])
         self.subfolder_cleanup_rules = cleanup_config.get('subfolder_cleanup_rules', [])
+        self.old_file_cleanup = cleanup_config.get('old_file_cleanup', {})
         self.monitor_running = False
         self.monitor_thread = None
         self.deleted_files: Set[str] = set()
@@ -169,6 +171,56 @@ class CleanupManager:
             gb.rc.print(f"❌ Ошибка при очистке подпапок с исключениями: {e}", style="red")
             return deleted_count
     
+    def cleanup_old_files(self) -> int:
+        """
+        Удаляет старые файлы по расширению и возрасту (только в корне)
+        
+        Returns:
+            int: Количество удаленных файлов
+        """
+        deleted_count = 0
+        
+        if not self.old_file_cleanup:
+            return 0
+        
+        extensions = self.old_file_cleanup.get('extensions', [])
+        max_age_days = self.old_file_cleanup.get('max_age_days', 3)
+        
+        if not extensions:
+            return 0
+        
+        try:
+            if not self.target_path.exists():
+                return 0
+            
+            current_time = time.time()
+            max_age_seconds = max_age_days * 24 * 60 * 60
+            
+            # Ищем файлы только в корне директории
+            for item in self.target_path.iterdir():
+                if item.is_file():
+                    # Проверяем расширение файла
+                    if item.suffix.lower() in extensions:
+                        try:
+                            # Получаем время создания файла
+                            file_age_seconds = current_time - item.stat().st_ctime
+                            
+                            # Если файл старше max_age_days, удаляем его
+                            if file_age_seconds > max_age_seconds:
+                                file_age_days = file_age_seconds / (24 * 60 * 60)
+                                item.unlink()
+                                gb.rc.print(f"🗑️ Удален старый файл ({file_age_days:.1f} дней): {item.name}", style="green")
+                                deleted_count += 1
+                                self.deleted_files.add(item.name)
+                        except Exception as e:
+                            gb.rc.print(f"❌ Ошибка при удалении старого файла {item.name}: {e}", style="red")
+            
+            return deleted_count
+            
+        except Exception as e:
+            gb.rc.print(f"❌ Ошибка при очистке старых файлов: {e}", style="red")
+            return deleted_count
+    
     def cleanup_folders_root(self) -> int:
         """
         Удаляет папки в корне target_path, соответствующие паттернам
@@ -249,6 +301,10 @@ class CleanupManager:
         """
         gb.rc.print(f"🔍 Запущен мониторинг очистки в: {self.target_path}", style="blue")
         gb.rc.print(f"📋 Паттерны файлов (корень): {self.file_patterns}", style="cyan")
+        if self.old_file_cleanup:
+            extensions = self.old_file_cleanup.get('extensions', [])
+            max_age = self.old_file_cleanup.get('max_age_days', 0)
+            gb.rc.print(f"📋 Старые файлы: {extensions} старше {max_age} дней", style="cyan")
         gb.rc.print(f"📋 Паттерны папок (корень): {self.folder_patterns}", style="cyan")
         if self.folder_path_patterns:
             gb.rc.print(f"📋 Паттерны папок (по пути): {self.folder_path_patterns}", style="cyan")
@@ -272,6 +328,9 @@ class CleanupManager:
                 # Выполняем очистку файлов (только в корне)
                 files_deleted = self.cleanup_files()
                 
+                # Выполняем очистку старых файлов по расширению
+                old_files_deleted = self.cleanup_old_files()
+                
                 # Выполняем очистку папок в корне
                 folders_deleted_root = self.cleanup_folders_root()
                 
@@ -281,9 +340,10 @@ class CleanupManager:
                 # Выполняем очистку подпапок с исключениями
                 subfolders_deleted = self.cleanup_subfolders_with_exclusions()
                 
+                total_files = files_deleted + old_files_deleted
                 total_folders = folders_deleted_root + folders_deleted_path + subfolders_deleted
-                if files_deleted > 0 or total_folders > 0:
-                    gb.rc.print(f"✅ Очистка завершена: удалено {files_deleted} файлов и {total_folders} папок", style="green")
+                if total_files > 0 or total_folders > 0:
+                    gb.rc.print(f"✅ Очистка завершена: удалено {total_files} файлов и {total_folders} папок", style="green")
                 
                 # Освобождаем глобальную переменную перед паузой
                 if gb.task_sync.is_task_running(task_name):

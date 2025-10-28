@@ -44,4 +44,9 @@ cleanup = {
             'exclude_subfolders': ['profile_information'],  # Эти подпапки НЕ удалять
         }
     ],
+    # Правила для удаления старых файлов по расширению и возрасту
+    'old_file_cleanup': {
+        'extensions': ['.crdownload'],  # Расширения файлов для удаления
+        'max_age_days': 3,  # Удалять файлы старше N дней
+    },
 }
